@@ -136,7 +136,7 @@ export class Game {
                 forfeitRound = true
             }
 
-            generator.next();
+            nextItem = generator.next();
         }
 
         if (forfeitRound) {
