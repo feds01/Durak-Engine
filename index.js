@@ -1,5 +1,3 @@
-module.exports = {
-    game: import("src/game"),
-    lobby: import("src/error"),
-    error: import("src/error"),
-}
+export game from "./src/game";
+export error from "./src/error";
+export lobby from "./src/lobby";
