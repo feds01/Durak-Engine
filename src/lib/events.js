@@ -12,6 +12,9 @@ export const NEW_PLAYER = "new_player";
 export const COUNTDOWN = "countdown";
 export const GAME_STARTED = "game_started";
 
+// @redundant event.
+export const UPDATED_PASSPHRASE = "updated_passphrase";
+
 
 // generic events
 export const ERROR = "error";
