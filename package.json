@@ -2,14 +2,20 @@
   "name": "shared",
   "version": "1.0.0",
   "description": "Shared code between durak cards API and clients.",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "scripts": {
+    "prepare": "npm run build",
+    "build": " babel --out-dir dist ./src"
+  },
   "repository": "https://github.com/feds01/durak-cards-shared",
   "author": "Alexander. E. Fedotov",
   "license": "MIT",
   "devDependencies": {
+    "@babel/cli": "^7.12.10",
     "@babel/core": "^7.12.9",
     "@babel/node": "^7.12.6",
     "@babel/plugin-proposal-class-properties": "^7.12.1",
+    "@babel/plugin-proposal-export-default-from": "^7.12.1",
     "@babel/preset-env": "7.12.7"
   },
   "dependencies": {
