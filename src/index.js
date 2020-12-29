@@ -1,3 +1,3 @@
-export game from "./game";
-export error from "./error";
-export lobby from "./lobby";
+export game from "~/lib/game";
+export error from "~/lib/error";
+export lobby from "~/lib/lobby";
