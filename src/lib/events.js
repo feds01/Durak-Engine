@@ -4,6 +4,7 @@ export const UPDATE_PASSPHRASE = "update_passphrase";
 export const START_GAME = "start_game";
 export const TURN = "turn";
 export const NEXT_ROUND = "next_round";
+export const KICK_PLAYER = "kick_player";
 
 
 // client events

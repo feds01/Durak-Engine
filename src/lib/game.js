@@ -67,9 +67,13 @@ export class Game {
      * @version 1.0.0
      * Game constructor initialises the game deck, players and the
      * history object.
+     *
+     * @param {Array<String>} players An array of player names that are within the game.
+     * @param {Array<{}>} history - An array of history nodes for the game to rebuild the previous
+     * state from.
      * */
-    constructor(id, players, history) {
-        this.history = {};
+    constructor(players, history = []) {
+        this.history = history;
         this.players = new Map();
 
         /**
@@ -104,7 +108,7 @@ export class Game {
 
         // distribute the cards between the players as if in a physical way
         for (let index = 0; index < Game.DECK_SIZE; index++) {
-            this.players.forEach((value, key, map) => {
+            this.players.forEach((value, key) => {
                 this.players.get(key).deck.push(this.deck.shift());
             });
         }
@@ -113,8 +117,6 @@ export class Game {
         // shift the first element to the end of the stack.
         this.trumpSuit = parseCard(this.deck[0])[1];
         this.deck.push(this.deck.shift());
-
-        // Setup the initial state of the game if it hasn't been created yet.
     }
 
     /**
