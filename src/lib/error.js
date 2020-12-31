@@ -1,5 +1,5 @@
 /**
- * api/error.js
+ * lib/error.js
  *
  * Module description:
  *

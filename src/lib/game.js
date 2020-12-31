@@ -1,4 +1,3 @@
-import {nanoid} from "nanoid";
 import {shuffleArray} from "./utils";
 
 export const CardLabels = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
@@ -76,11 +75,14 @@ export class Game {
         } else if (players > 8) {
             throw new Error("Number of players cannot be greater than eight.");
         } else {
+
+            // check that all of the player names are unique
+            if (new Set(players).size !== players.length) {
+                throw new Error("Player names must be unique.")
+            }
             // set the game up for the 'players' number.
             for (let index = 0; index < players; index++) {
-                const id = nanoid();
-
-                this.players.set(id, {
+                this.players.set(players[index], {
                     deck: [],
                     defending: false,
                 });
