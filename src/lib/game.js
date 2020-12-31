@@ -77,11 +77,11 @@ export class Game {
         } else {
 
             // check that all of the player names are unique
-            if (new Set(players).size !== players.length) {
+            if ((new Set(players)).size !== players.length) {
                 throw new Error("Player names must be unique.")
             }
             // set the game up for the 'players' number.
-            for (let index = 0; index < players; index++) {
+            for (let index = 0; index < players.length; index++) {
                 this.players.set(players[index], {
                     deck: [],
                     defending: false,
