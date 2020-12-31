@@ -1,7 +1,8 @@
 import {nanoid} from "nanoid";
+import {shuffleArray} from "./utils";
 
-export const CardLabels = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King", "Ace"];
-export const CardSuits = ['♡', '♢', '♣', '♤'];
+export const CardLabels = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+export const CardSuits = {'H': '♡', 'D': '♢', 'C': '♣', 'S': '♤'};
 
 export const GameState = Object.freeze({
     WAITING: "WAITING",
@@ -15,8 +16,8 @@ export const GameState = Object.freeze({
  * */
 export function generateCardDeck() {
     return CardLabels.map((label) => {
-        return CardSuits.map((suit) => {
-            return `${label} of ${suit}`;
+        return Object.keys(CardSuits).map((suit) => {
+            return `${label}${suit}`;
         })
     }).flat();
 }
@@ -30,27 +31,7 @@ export function generateCardDeck() {
  * @return {Array<String>} The numerical and suite component of the card.
  * */
 export function parseCard(card) {
-    return card.split(" of ")
-}
-
-/**
- * Shuffle the deck using
- * */
-// TODO: move to general array utils
-export function shuffleDeck(deck) {
-    let currentIndex = deck.length, temp, randomIndex;
-
-    while (0 !== currentIndex) {
-        randomIndex = Math.floor(Math.random() * currentIndex);
-        currentIndex -= 1;
-
-        // And swap it with the current element.
-        temp = deck[currentIndex];
-        deck[currentIndex] = deck[randomIndex];
-        deck[randomIndex] = temp;
-    }
-
-    return deck;
+    return [card.substring(0, card.length - 1), card.substring(card.length - 1)];
 }
 
 
@@ -85,7 +66,7 @@ export class Game {
 
         // generate card deck and shuffle it for the game
         this.deck = generateCardDeck();
-        shuffleDeck(this.deck);
+        shuffleArray(this.deck);
 
         // perform an 'id' check to see if there is a entry within MongoDB
 
