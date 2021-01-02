@@ -97,6 +97,7 @@ export class Game {
             for (let index = 0; index < players.length; index++) {
                 this.players.set(players[index], {
                     deck: [],
+                    turned: false,
                     isDefending: false,
                 });
             }
@@ -133,7 +134,7 @@ export class Game {
         let nextItem = generator.next();
         let forfeitRound = false;
 
-        while(!nextItem.done || forfeitRound) {
+        while (!nextItem.done || forfeitRound) {
             if (nextItem.value[1] === null) {
                 forfeitRound = true
             }
@@ -141,6 +142,7 @@ export class Game {
             nextItem = generator.next();
         }
 
+        // TODO: check that all players have declared that they finished the round.
         if (forfeitRound) {
             // Take the cards from the table top and move them into the players
             // personal deck
@@ -161,15 +163,20 @@ export class Game {
 
             // we need to transpose the player list to begin with the current
             // attacking player and the rest following in a clockwise manner.
+            // TODO: Actually we need to record who the first attacking player was of this round
+            //      since it's possible that the prime 'attacking' status can be transferred...
             const playerIds = Array.from(this.players.keys());
             const playerIdx = playerIds.indexOf(this.getDefendingPlayer());
 
             for (let id of [...playerIds.slice(0, playerIdx), ...playerIds.slice(playerIdx, playerIds.length)]) {
                 const player = this.players.get(id);
 
+                // update the deck and set the 'turned' value to false ready for next round
                 if (player.deck.length < 6) {
                     player.deck = [...player.deck, this.deck.splice(0, 6 - player.deck.length)];
                 }
+
+                player.turned = false;
             }
         }
     }
@@ -301,8 +308,8 @@ export class Game {
             // TODO: add this transaction as a history node.
             this.transferCardOntoTable(defendingPlayer, coveringCard);
         } else {
-            const [cardNumeric, cardSuit] = parseCard(card);
-            const [coveringCardNumeric, coveringCardSuit] = parseCard(coveringCard);
+            const [numeric, suit] = parseCard(card);
+            const [coveringNumeric, coveringSuit] = parseCard(coveringCard);
 
             /* check whether we are dealing with the same suit of card, or if the defending
              * player is attempting to use the trumping suit. In general, there are three
@@ -318,29 +325,23 @@ export class Game {
              *    cover the card which is an illegal state.
              */
 
-            if (cardSuit === coveringCardSuit) {
-                if (cardSuit === this.trumpSuit) {
-                    if (cardNumeric > coveringCardNumeric) {
-                        throw new Error("Covering card must have a higher value.");
-                    }
-                } else {
-                    if (cardNumeric > coveringCardNumeric) {
-                        throw new Error("Covering card must have a higher value.");
-                    }
+            if (coveringSuit === suit) {
+                // The trumping suit doesn't matter here since they are the same
+                if (numeric >= coveringNumeric) {
+                    throw new Error("Covering card must have a higher value.");
                 }
-            } else {
-                if (coveringCardSuit !== this.trumpSuit) {
-                    throw new Error(`
+            }
+
+            if (suit !== this.trumpSuit) {
+                throw new Error(`
                         Covering card suit must be the same suit as the 
                         table card and have a higher numerical value.
                     `);
-                }
             }
 
             // Transfer the player card from their deck to the the table top.
             this.tableTop.set(card, coveringCard);
-            defendingPlayer.deck = defendingPlayer.deck.filter((playerCard) => playerCard !== coveringCardSuit);
-
+            defendingPlayer.deck = defendingPlayer.deck.filter((playerCard) => playerCard !== coveringCard);
         }
     }
 
@@ -353,8 +354,11 @@ export class Game {
      *        is being transferred to.
      * */
     setDefendingPlayer(name) {
-        if (this.players.get(name) === null) {
-            throw new Error("Player with the given id doesn't exist.");
+        const player = this.players.get(name);
+
+        // player doesn't exist.
+        if (typeof player === 'undefined') {
+            throw new Error("Player doesn't exist.")
         }
 
         // unset the current defending player status, and then set the status
@@ -366,8 +370,28 @@ export class Game {
             this.players.get(defendingPlayer).isDefending = false;
         }
 
-        this.players.get(name).isDefending = true;
+        player.isDefending = true;
     }
+
+    /**
+     * @version 1.0.0
+     * This method will transfer the status of defending player to the
+     * specified player id.
+     *
+     * @param {String} name - The name of the player that the defending status
+     *        is being transferred to.
+     * */
+    finalisePlayerTurn(name) {
+        const player = this.players.get(name);
+
+        // player doesn't exist.
+        if (typeof player === 'undefined') {
+            throw new Error("Player doesn't exist.")
+        }
+
+        player.turned = true;
+    }
+
 
     /**
      * @version 1.0.0
@@ -413,7 +437,7 @@ export class Game {
      * @return {Array<String>} an array of cards.
      * */
     getTableTopDeck() {
-        return this.tableTop.entries().flat().filter(item => item !== null);
+        return Array.from(this.tableTop.entries()).flat().filter(item => item !== null);
     }
 
     /**
