@@ -1,6 +1,6 @@
 import {shuffleArray} from "./utils";
 
-export const CardLabels = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+export const CardNumerics = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 export const CardSuits = {'H': '♡', 'D': '♢', 'C': '♣', 'S': '♤'};
 
 export const GameState = Object.freeze({
@@ -14,7 +14,7 @@ export const GameState = Object.freeze({
  * element follows the format of '<label> of <suit>'.
  * */
 export function generateCardDeck() {
-    return CardLabels.map((label) => {
+    return CardNumerics.map((label) => {
         return Object.keys(CardSuits).map((suit) => {
             return `${label}${suit}`;
         })
@@ -24,13 +24,26 @@ export function generateCardDeck() {
 
 /**
  * Simple function to split the card string into it's 'numerical'
- * value and it's 'suite' value.
+ * value and it's 'suit' value.
  *
  * @param {String} card String representing card which is to be parsed.
- * @return {Array<String>} The numerical and suite component of the card.
+ * @return {Array<String>} The numerical and suit component of the card.
  * */
 export function parseCard(card) {
-    return [card.substring(0, card.length - 1), card.substring(card.length - 1)];
+
+    // ensure the numeric and suit are valid
+    const suit = card.substring(card.length - 1);
+    const rawNumeric = card.substring(0, card.length - 1);
+
+    if (!CardSuits.keys().includes(suit)) {
+        throw new Error("Invalid card suit.");
+    }
+
+    if (!CardNumerics.includes(rawNumeric)) {
+        throw new Error("Invalid card numeric.")
+    }
+
+    return [CardNumerics.indexOf(rawNumeric) + 2, suit];
 }
 
 
@@ -96,7 +109,7 @@ export class Game {
             });
         }
 
-        // Select the first remaining card and set the 'suite' of the game and then
+        // Select the first remaining card and set the 'suit' of the game and then
         // shift the first element to the end of the stack.
         this.trumpSuit = parseCard(this.deck[0])[1];
         this.deck.push(this.deck.shift());
@@ -199,12 +212,7 @@ export class Game {
             throw new Error("Player doesn't have enough cards to cover attack.");
         }
 
-        const [cardLabel, cardSuite] = parseCard(card);
-
-        // check if the card is valid
-        if (!CardLabels.includes(cardLabel) || !CardSuits.includes(cardSuite)) {
-            throw new Error("Invalid card");
-        }
+        const [cardNumeric] = parseCard(card);
 
         // Now check the presence of the given card, in the players deck.
         if (!player.deck.includes(card)) {
@@ -213,7 +221,7 @@ export class Game {
 
         // Also check that the current card is allowed to be added to the deck. To determine this,
         // the cardLabel of the card to be added must be present on the tableTop.
-        if (!this.getTableTopDeck().map(item => parseCard(item)[0]).includes(cardLabel)) {
+        if (!this.getTableTopDeck().map(item => parseCard(item)[0]).includes(cardNumeric)) {
             throw new Error("Card numerical value isn't present on the table top.");
         }
 
@@ -235,7 +243,7 @@ export class Game {
      *
      * 2. Is the card they are trying to cover hierarchically higher than the cards
      *    that's on the table. This means that it must have a higher numerical value
-     *    and the same suite and or be a card in the trumping suite. If it does not,
+     *    and the same suit and or be a card in the trumping suit. If it does not,
      *    the player cannot use it to cover the card.
      *
      * 3. Is the player trying to transfer the defensive role to the next player
@@ -267,14 +275,14 @@ export class Game {
         // to the left hand side player. This can be checked by the fact if the 'card' they
         // are trying to cover is equal to null.
         if (card === null) {
-            const [cardLabel, cardSuit] = parseCard(coveringCard);
+            const [cardNumeric] = parseCard(coveringCard);
 
             // we need to check if the player can transfer the defensive role to
             // the next player. For this to be true, all of the cards in the deck
             // must have the same card label, and, no card must be covered on the
             // deck. Additionally, the role can't be passed if the player to the
             // left has less cards than the length of the deck + 1.
-            if (this.tableTop.keys().some((tableCard) => parseCard(tableCard)[0] !== cardLabel)) {
+            if (this.tableTop.keys().some((tableCard) => parseCard(tableCard)[0] !== cardNumeric)) {
                 throw new Error("Improper card for the transfer of defense state to next player.");
             }
 
@@ -289,11 +297,11 @@ export class Game {
             // TODO: add this transaction as a history node.
             this.transferCardOntoTable(defendingPlayer, coveringCard);
         } else {
-            const [cardLabel, cardSuit] = parseCard(card);
-            const [coveringCardLabel, coveringCardSuit] = parseCard(coveringCard);
+            const [cardNumeric, cardSuit] = parseCard(card);
+            const [coveringCardNumeric, coveringCardSuit] = parseCard(coveringCard);
 
-            /* check whether we are dealing with the same suite of card, or if the defending
-             * player is attempting to use the trumping suite. In general, there are three
+            /* check whether we are dealing with the same suit of card, or if the defending
+             * player is attempting to use the trumping suit. In general, there are three
              * possible states the game can end up in. These are:
              *
              * 1. If the defending player is using the same suits to cover the table top card
@@ -308,15 +316,11 @@ export class Game {
 
             if (cardSuit === coveringCardSuit) {
                 if (cardSuit === this.trumpSuit) {
-                    if (coveringCardSuit !== this.trumpSuit) {
-                        throw new Error("Covering card suit must be a higher value trumping card.");
-                    }
-
-                    if (CardSuits.indexOf(cardLabel) > CardSuits.indexOf(coveringCardLabel)) {
+                    if (cardNumeric > coveringCardNumeric) {
                         throw new Error("Covering card must have a higher value.");
                     }
                 } else {
-                    if (CardSuits.indexOf(cardLabel) > CardSuits.indexOf(coveringCardLabel)) {
+                    if (cardNumeric > coveringCardNumeric) {
                         throw new Error("Covering card must have a higher value.");
                     }
                 }
