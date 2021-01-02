@@ -1,4 +1,4 @@
-import {shuffleArray} from "./utils";
+import {getRandomKey, shuffleArray} from "./utils";
 
 export const CardNumerics = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
 export const CardSuits = {'H': '♡', 'D': '♢', 'C': '♣', 'S': '♤'};
@@ -97,7 +97,7 @@ export class Game {
             for (let index = 0; index < players.length; index++) {
                 this.players.set(players[index], {
                     deck: [],
-                    defending: false,
+                    isDefending: false,
                 });
             }
         }
@@ -108,6 +108,10 @@ export class Game {
                 this.players.get(key).deck.push(this.deck.shift());
             });
         }
+
+        // select the attacking player randomly, the SDK can provide a method
+        // for overriding the starting attacking player later on...
+        this.players.get(getRandomKey(this.players)).isDefending = true;
 
         // Select the first remaining card and set the 'suit' of the game and then
         // shift the first element to the end of the stack.
@@ -140,7 +144,7 @@ export class Game {
         if (forfeitRound) {
             // Take the cards from the table top and move them into the players
             // personal deck
-            const player = this.players.get(this.getDefendingPlayerId());
+            const player = this.players.get(this.getDefendingPlayer());
 
             player.deck = [player.deck, ...this.getTableTopDeck()];
 
@@ -158,7 +162,7 @@ export class Game {
             // we need to transpose the player list to begin with the current
             // attacking player and the rest following in a clockwise manner.
             const playerIds = Array.from(this.players.keys());
-            const playerIdx = playerIds.indexOf(this.getDefendingPlayerId());
+            const playerIdx = playerIds.indexOf(this.getDefendingPlayer());
 
             for (let id of [...playerIds.slice(0, playerIdx), ...playerIds.slice(playerIdx, playerIds.length)]) {
                 const player = this.players.get(id);
@@ -264,7 +268,7 @@ export class Game {
             throw new Error("Card is not present on the table top.");
         }
 
-        const defendingPlayer = this.players.get(this.getDefendingPlayerId());
+        const defendingPlayer = this.players.get(this.getDefendingPlayer());
 
         // check that the 'coveringCard' is present in the defending players deck.
         if (!defendingPlayer.deck.includes(coveringCard)) {
@@ -345,24 +349,24 @@ export class Game {
      * This method will transfer the status of defending player to the
      * specified player id.
      *
-     * @param {String} id - The id of the player that the defending status
+     * @param {String} name - The name of the player that the defending status
      *        is being transferred to.
      * */
-    setDefendingPlayer(id) {
-        if (this.players.get(id) === null) {
+    setDefendingPlayer(name) {
+        if (this.players.get(name) === null) {
             throw new Error("Player with the given id doesn't exist.");
         }
 
         // unset the current defending player status, and then set the status
         // of the given player id as defending.
-        const defendingPlayerId = this.getDefendingPlayerId();
+        const defendingPlayer = this.getDefendingPlayer();
 
         // only unset if there even exists a defending player
-        if (typeof defendingPlayerId !== "undefined") {
-            this.players.get(defendingPlayerId).defending = false;
+        if (typeof defendingPlayer !== "undefined") {
+            this.players.get(defendingPlayer).isDefending = false;
         }
 
-        this.players.get(id).defending = true;
+        this.players.get(name).isDefending = true;
     }
 
     /**
@@ -372,11 +376,11 @@ export class Game {
      *
      * @return {String} the 'id' of the defending player.
      * */
-    getDefendingPlayerId() {
+    getDefendingPlayer() {
         const generator = this.players.keys();
         let nextItem = generator.next();
 
-        while (!(nextItem.done || this.players.get(nextItem.value).defending)) {
+        while (!(nextItem.done || this.players.get(nextItem.value).isDefending)) {
             nextItem = generator.next();
         }
 
@@ -396,7 +400,7 @@ export class Game {
      * */
     getPlayerIdByOffset(offset) {
         const playerIds = Array.from(this.players.keys());
-        const defendingPlayerIdx = playerIds.indexOf(this.getDefendingPlayerId());
+        const defendingPlayerIdx = playerIds.indexOf(this.getDefendingPlayer());
 
         return playerIds[Math.abs(defendingPlayerIdx + offset) % this.players.size];
     }
