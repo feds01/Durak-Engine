@@ -35,7 +35,7 @@ export function parseCard(card) {
     const suit = card.substring(card.length - 1);
     const rawNumeric = card.substring(0, card.length - 1);
 
-    if (!CardSuits.keys().includes(suit)) {
+    if (!Object.keys(CardSuits).includes(suit)) {
         throw new Error("Invalid card suit.");
     }
 
