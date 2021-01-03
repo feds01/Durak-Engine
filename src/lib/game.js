@@ -97,6 +97,7 @@ export class Game {
             for (let index = 0; index < players.length; index++) {
                 this.players.set(players[index], {
                     deck: [],
+                    canAttack: false,
                     turned: false,
                     isDefending: false,
                 });
@@ -112,7 +113,22 @@ export class Game {
 
         // select the attacking player randomly, the SDK can provide a method
         // for overriding the starting attacking player later on...
-        this.players.get(getRandomKey(this.players)).isDefending = true;
+        const chosenDefendingPlayer = getRandomKey(this.players);
+
+        this.players.get(chosenDefendingPlayer).isDefending = true;
+
+        // map object guarantees that keys are iterated by insertion order, so we can
+        // get the previous player and set their 'canAttack' value as true since they
+        // start the round...
+        const names = Array.from(this.players.keys());
+        const idx = names.indexOf(chosenDefendingPlayer);
+
+        if (idx === 0) {
+            this.players.get(names[names.length - 1]).canAttack = true;
+        } else {
+            this.players.get(names[idx - 1]).canAttack = true;
+        }
+
 
         // Select the first remaining card and set the 'suit' of the game and then
         // shift the first element to the end of the stack.
@@ -146,13 +162,13 @@ export class Game {
         if (forfeitRound) {
             // Take the cards from the table top and move them into the players
             // personal deck
-            const player = this.players.get(this.getDefendingPlayer());
+            const player = this.players.get(this.getDefendingPlayerName());
 
             player.deck = [player.deck, ...this.getTableTopDeck()];
 
-            this.setDefendingPlayer(this.getPlayerIdByOffset(1));
+            this.setDefendingPlayer(this.getPlayerNameByOffset(1));
         } else {
-            this.setDefendingPlayer(this.getPlayerIdByOffset(2));
+            this.setDefendingPlayer(this.getPlayerNameByOffset(2));
         }
 
         this.voidTableTop();
@@ -166,7 +182,7 @@ export class Game {
             // TODO: Actually we need to record who the first attacking player was of this round
             //      since it's possible that the prime 'attacking' status can be transferred...
             const playerIds = Array.from(this.players.keys());
-            const playerIdx = playerIds.indexOf(this.getDefendingPlayer());
+            const playerIdx = playerIds.indexOf(this.getDefendingPlayerName());
 
             for (let id of [...playerIds.slice(0, playerIdx), ...playerIds.slice(playerIdx, playerIds.length)]) {
                 const player = this.players.get(id);
@@ -275,7 +291,7 @@ export class Game {
             throw new Error("Card is not present on the table top.");
         }
 
-        const defendingPlayer = this.players.get(this.getDefendingPlayer());
+        const defendingPlayer = this.players.get(this.getDefendingPlayerName());
 
         // check that the 'coveringCard' is present in the defending players deck.
         if (!defendingPlayer.deck.includes(coveringCard)) {
@@ -298,7 +314,7 @@ export class Game {
             }
 
             // check that the next player can handle the defense round...
-            let nextPlayer = this.players.get(this.getPlayerIdByOffset(1));
+            let nextPlayer = this.players.get(this.getPlayerNameByOffset(1));
 
             if (nextPlayer.deck.length < this.tableTop.size + 1) {
                 throw new Error("Cannot transfer defense state to next player since they don't have enough cards.");
@@ -358,19 +374,29 @@ export class Game {
 
         // player doesn't exist.
         if (typeof player === 'undefined') {
-            throw new Error("Player doesn't exist.")
+            throw new Error("Player doesn't exist.");
         }
 
         // unset the current defending player status, and then set the status
         // of the given player id as defending.
-        const defendingPlayer = this.getDefendingPlayer();
+        const defendingPlayer = this.getDefendingPlayerName();
 
         // only unset if there even exists a defending player
-        if (typeof defendingPlayer !== "undefined") {
-            this.players.get(defendingPlayer).isDefending = false;
+        if (typeof defendingPlayer === "undefined") {
+            throw new Error("Invalid game state, defending player doesn't exist.");
         }
 
+        // reset everyone's 'canAttack' privileges...
+        this.players.forEach((player, name) => {
+            player.canAttack = false;
+        });
+
+
+        this.players.get(defendingPlayer).isDefending = false;
+        this.players.get(defendingPlayer).canAttack = true;
+
         player.isDefending = true;
+        player.canAttack = false;
     }
 
     /**
@@ -390,6 +416,17 @@ export class Game {
         }
 
         player.turned = true;
+
+        // If this is the attacking player, set everyone's 'canAttack' (except defending)
+        // player as true since the move has been made..
+        const defendingPLayer = this.getDefendingPlayerName();
+
+        this.players.forEach((player, name) => {
+            if (name !== defendingPLayer) {
+                player.canAttack = true;
+            }
+        });
+
     }
 
 
@@ -400,7 +437,7 @@ export class Game {
      *
      * @return {String} the 'id' of the defending player.
      * */
-    getDefendingPlayer() {
+    getDefendingPlayerName() {
         const generator = this.players.keys();
         let nextItem = generator.next();
 
@@ -422,9 +459,9 @@ export class Game {
      *
      * @return {String} the 'id' of attacking player.
      * */
-    getPlayerIdByOffset(offset) {
+    getPlayerNameByOffset(offset) {
         const playerIds = Array.from(this.players.keys());
-        const defendingPlayerIdx = playerIds.indexOf(this.getDefendingPlayer());
+        const defendingPlayerIdx = playerIds.indexOf(this.getDefendingPlayerName());
 
         return playerIds[Math.abs(defendingPlayerIdx + offset) % this.players.size];
     }
