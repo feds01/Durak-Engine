@@ -242,7 +242,7 @@ export class Game {
         }
 
         // check that the defending play is able to cover the table top cards.
-        const coveredCards = this.tableTop.values().filter((item) => item !== null);
+        const coveredCards = Array.from(this.tableTop.values()).filter((item) => item !== null);
 
         if (this.tableTop.size - coveredCards.length + 1 > player.deck.length) {
             throw new Error("Player doesn't have enough cards to cover attack.");
@@ -296,7 +296,7 @@ export class Game {
      * */
     coverCardOnTableTop(card, coveringCard) {
         // check that the 'card' is present on the table top...
-        if (!Object.keys(this.tableTop).includes(card)) {
+        if (!Array.from(this.tableTop.keys()).includes(card)) {
             throw new Error("Card is not present on the table top.");
         }
 
@@ -318,7 +318,7 @@ export class Game {
             // must have the same card label, and, no card must be covered on the
             // deck. Additionally, the role can't be passed if the player to the
             // left has less cards than the length of the deck + 1.
-            if (this.tableTop.keys().some((tableCard) => parseCard(tableCard)[0] !== cardNumeric)) {
+            if (Array.from(this.tableTop.keys()).some((tableCard) => parseCard(tableCard)[0] !== cardNumeric)) {
                 throw new Error("Improper card for the transfer of defense state to next player.");
             }
 
