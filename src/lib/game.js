@@ -175,9 +175,9 @@ export class Game {
 
             player.deck = [player.deck, ...this.getTableTopDeck()];
 
-            this.setDefendingPlayer(this.getPlayerNameByOffset(1));
+            this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 1));
         } else {
-            this.setDefendingPlayer(this.getPlayerNameByOffset(2));
+            this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 2));
         }
 
         this.voidTableTop();
@@ -225,26 +225,27 @@ export class Game {
      * node is added to the game history. The card is also taken from the player
      * that adds the card.
      *
-     * @param {String} from - The id of the player that's taking the card.
+     * @param {String} name - The id of the player that's taking the card.
      * @param {String} card - The card that's being added to the table top.
      * */
-    addCardToTableTop(from, card) {
+    addCardToTableTop(name, card) {
         // check if the deck is already filled up.
         if (!(this.tableTop.size < 6)) {
             throw new Error("Player deck already full.");
         }
 
-        const player = this.players.get(from);
+        const player = this.players.get(name);
 
         // check if the id is valid
-        if (typeof player === 'undefined') {
-            throw new Error("Player doesn't exist.");
-        }
+        if (typeof player === 'undefined') throw new Error("Player doesn't exist.");
 
         // check that the defending play is able to cover the table top cards.
         const coveredCards = Array.from(this.tableTop.values()).filter((item) => item !== null);
 
-        if (this.tableTop.size - coveredCards.length + 1 > player.deck.length) {
+        // get the next player from this one...
+        const nextPlayer = this.players.get(this.getPlayerNameByOffset(name, 1));
+
+        if (this.tableTop.size - coveredCards.length + 1 > nextPlayer.deck.length) {
             throw new Error("Player doesn't have enough cards to cover attack.");
         }
 
@@ -263,11 +264,27 @@ export class Game {
             throw new Error("Card numerical value isn't present on the table top.");
         }
 
+        // Now let's determine if the player is trying to transfer the defensive position
+        // to the left hand side player. This can be checked by the fact if the 'card' they
+        // are trying to cover is equal to null.
+        if (player.isDefending) {
+
+            // we need to check if the player can transfer the defensive role to
+            // the next player. For this to be true, all of the cards in the deck
+            // must have the same card label, and, no card must be covered on the
+            // deck. Additionally, the role can't be passed if the player to the
+            // left has less cards than the length of the deck + 1.
+            if (Array.from(this.tableTop.keys()).some((tableCard) => parseCard(tableCard)[0] !== cardNumeric)) {
+                throw new Error("Improper card for the transfer of defense state to next player.");
+            }
+
+            // transfer defense state to the next player
+            this.setDefendingPlayer(this.getPlayerNameByOffset(name, 1));
+        }
+
         // TODO: add this transaction as a history node.
-        // finally, if everything passes then add the card to the table top from the players
-        // deck.
-        this.tableTop.set(card, null);
-        player.deck = player.deck.filter((item) => item !== card);
+        // finally, if everything passes then add the card to the table top from the player's deck.
+        this.transferCardOntoTable(player, card);
     }
 
     /**
@@ -292,84 +309,57 @@ export class Game {
      *    The defending player can only do this if they haven't covered any other
      *    cards.
      *
-     * @param {String} card - The card that's going to be covered on the table.
-     * @param {String} coveringCard - The card that's going to be used to cover the
-     *        card on the table.
+     * @param {String} card - The card that's going to be used to cover the table top card.
+     * @param {number} pos - The position of the card that's going to be covered.
      * */
-    coverCardOnTableTop(card, coveringCard) {
-        // check that the 'card' is present on the table top...
-        if (!Array.from(this.tableTop.keys()).includes(card)) {
-            throw new Error("Card is not present on the table top.");
-        }
-
+    coverCardOnTableTop(card, pos) {
         const defendingPlayer = this.players.get(this.getDefendingPlayerName());
 
-        // check that the 'coveringCard' is present in the defending players deck.
-        if (!defendingPlayer.deck.includes(coveringCard)) {
+        // check that the 'card' is present on the table top...
+        if (!defendingPlayer.deck.includes(card)) {
             throw new Error("Defending card is not present in the defending players deck.");
         }
 
-        // Now let's determine if the player is trying to transfer the defensive position
-        // to the left hand side player. This can be checked by the fact if the 'card' they
-        // are trying to cover is equal to null.
-        if (card === null) {
-            const [cardNumeric] = parseCard(coveringCard);
 
-            // we need to check if the player can transfer the defensive role to
-            // the next player. For this to be true, all of the cards in the deck
-            // must have the same card label, and, no card must be covered on the
-            // deck. Additionally, the role can't be passed if the player to the
-            // left has less cards than the length of the deck + 1.
-            if (Array.from(this.tableTop.keys()).some((tableCard) => parseCard(tableCard)[0] !== cardNumeric)) {
-                throw new Error("Improper card for the transfer of defense state to next player.");
+        // check that the 'coveringCard' is present in the defending players deck.
+        if (!this.getCardOnTableTopAt(pos)) {
+            throw new Error("Defending card is not present in the defending players deck.");
+        }
+
+
+        const [numeric, suit] = parseCard(card);
+        const [coveringNumeric, coveringSuit] = parseCard(card);
+
+        /* check whether we are dealing with the same suit of card, or if the defending
+         * player is attempting to use the trumping suit. In general, there are three
+         * possible states the game can end up in. These are:
+         *
+         * 1. If the defending player is using the same suits to cover the table top card
+         *
+         * 2. If the player is using a trumping suit card to cover another card, unless if
+         *    the table card is also a trumping suit. If this is the case, then the defending
+         *    player must use a higher numerical value.
+         *
+         * 3. The defending player attempts to use a different, non-trumping suit card to
+         *    cover the card which is an illegal state.
+         */
+        if (coveringSuit === suit) {
+            // The trumping suit doesn't matter here since they are the same
+            if (numeric >= coveringNumeric) {
+                throw new Error("Covering card must have a higher value.");
             }
+        }
 
-            // check that the next player can handle the defense round...
-            let nextPlayer = this.players.get(this.getPlayerNameByOffset(1));
-
-            if (nextPlayer.deck.length < this.tableTop.size + 1) {
-                throw new Error("Cannot transfer defense state to next player since they don't have enough cards.");
-            }
-
-            // otherwise we now add the card to the table top and set the next player as the defending player.
-            // TODO: add this transaction as a history node.
-            this.transferCardOntoTable(defendingPlayer, coveringCard);
-        } else {
-            const [numeric, suit] = parseCard(card);
-            const [coveringNumeric, coveringSuit] = parseCard(coveringCard);
-
-            /* check whether we are dealing with the same suit of card, or if the defending
-             * player is attempting to use the trumping suit. In general, there are three
-             * possible states the game can end up in. These are:
-             *
-             * 1. If the defending player is using the same suits to cover the table top card
-             *
-             * 2. If the player is using a trumping suit card to cover another card, unless if
-             *    the table card is also a trumping suit. If this is the case, then the defending
-             *    player must use a higher numerical value.
-             *
-             * 3. The defending player attempts to use a different, non-trumping suit card to
-             *    cover the card which is an illegal state.
-             */
-
-            if (coveringSuit === suit) {
-                // The trumping suit doesn't matter here since they are the same
-                if (numeric >= coveringNumeric) {
-                    throw new Error("Covering card must have a higher value.");
-                }
-            }
-
-            if (suit !== this.trumpSuit) {
-                throw new Error(`
+        if (suit !== this.trumpSuit) {
+            throw new Error(`
                         Covering card suit must be the same suit as the 
                         table card and have a higher numerical value.
                     `);
-            }
-
-            // Transfer the player card from their deck to the the table top.
-            this.tableTop.set(card, coveringCard);
-            defendingPlayer.deck = defendingPlayer.deck.filter((playerCard) => playerCard !== coveringCard);
         }
+
+        // Transfer the player card from their deck to the the table top.
+        this.tableTop.set(this.getCardOnTableTopAt(pos), card);
+        defendingPlayer.deck = defendingPlayer.deck.filter((playerCard) => playerCard !== card);
     }
 
     /**
@@ -469,15 +459,20 @@ export class Game {
      * the left hand side. If it's positive, then it will return the index from
      * the right hand side.
      *
+     * @param {string} name - The player to begin the index at..
      * @param {number} offset - The offset from the current defending player.
      *
-     * @return {String} the 'id' of attacking player.
+     * @return {String} the name of player 'offset' positions after the given one.
      * */
-    getPlayerNameByOffset(offset) {
+    getPlayerNameByOffset(name, offset) {
         const playerNames = Array.from(this.players.keys());
-        const defendingPlayerIdx = playerNames.indexOf(this.getDefendingPlayerName());
+        const playerIndex = playerNames.indexOf(name);
 
-        return playerNames[Math.abs(defendingPlayerIdx + offset) % this.players.size];
+        if (playerIndex < 0) {
+            throw new Error("Player doesn't exist within the lobby.");
+        }
+
+        return playerNames[Math.abs(playerIndex + offset) % this.players.size];
     }
 
     /**
@@ -489,6 +484,22 @@ export class Game {
      * */
     getTableTopDeck() {
         return Array.from(this.tableTop.entries()).flat().filter(item => item !== null);
+    }
+
+    /**
+     * Method to get a bottom card of the table top by a position on the table.
+     *
+     * @param {number} pos - The position of the card to get from the table top,
+     *
+     * @return {?String} The card on the table top at the given position, if nothing
+     * is at the given position the method will return 'undefined'.
+     * */
+    getCardOnTableTopAt(pos) {
+        if (pos < 0 || pos > 5) {
+            throw new Error(`Can't get table top card at position '${pos}'`);
+        }
+
+        return Array.from(this.tableTop.keys())[pos];
     }
 
     /**
