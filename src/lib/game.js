@@ -327,7 +327,7 @@ export class Game {
         }
 
 
-        const [numeric, suit] = parseCard(card);
+        const [numeric, suit] = parseCard(this.getCardOnTableTopAt(pos));
         const [coveringNumeric, coveringSuit] = parseCard(card);
 
         /* check whether we are dealing with the same suit of card, or if the defending
@@ -345,7 +345,7 @@ export class Game {
          */
         if (coveringSuit === suit) {
             // The trumping suit doesn't matter here since they are the same
-            if (numeric >= coveringNumeric) {
+            if (numeric > coveringNumeric) {
                 throw new Error("Covering card must have a higher value.");
             }
         }
