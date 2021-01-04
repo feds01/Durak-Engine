@@ -348,13 +348,8 @@ export class Game {
             if (numeric > coveringNumeric) {
                 throw new Error("Covering card must have a higher value.");
             }
-        }
-
-        if (suit !== this.trumpSuit) {
-            throw new Error(`
-                        Covering card suit must be the same suit as the 
-                        table card and have a higher numerical value.
-                    `);
+        } else if (coveringSuit !== this.trumpSuit) {
+            throw new Error(`Covering card suit must be the same suit as the table card and have a higher numerical value.`);
         }
 
         // Transfer the player card from their deck to the the table top.
