@@ -54,7 +54,16 @@ export function parseCard(card) {
  * @author Alexander. E. Fedotov
  * */
 export class Game {
-    static DECK_SIZE = 6;
+    static DeckSize = 6;
+
+    /**
+     * Possible move types that any player can make.
+     * */
+    static MoveTypes = {
+        PLACE: "place",
+        COVER: "cover",
+        FORFEIT: "forfeit",
+    };
 
     /**
      * @version 1.0.0
@@ -105,7 +114,7 @@ export class Game {
         }
 
         // distribute the cards between the players as if in a physical way
-        for (let index = 0; index < Game.DECK_SIZE; index++) {
+        for (let index = 0; index < Game.DeckSize; index++) {
             this.players.forEach((value, key) => {
                 this.players.get(key).deck.push(this.deck.shift());
             });
@@ -419,13 +428,16 @@ export class Game {
 
         // If this is the attacking player, set everyone's 'canAttack' (except defending)
         // player as true since the move has been made..
-        const defendingPLayer = this.getDefendingPlayerName();
+        const defendingPlayer = this.getDefendingPlayerName();
+        const attackingPlayer = this.getPlayerNameByOffset(-1);
 
-        this.players.forEach((player, name) => {
-            if (name !== defendingPLayer) {
-                player.canAttack = true;
-            }
-        });
+        if (attackingPlayer === name) {
+            this.players.forEach((player, name) => {
+                if (name !== defendingPlayer) {
+                    player.canAttack = true;
+                }
+            });
+        }
 
     }
 
@@ -460,10 +472,10 @@ export class Game {
      * @return {String} the 'id' of attacking player.
      * */
     getPlayerNameByOffset(offset) {
-        const playerIds = Array.from(this.players.keys());
-        const defendingPlayerIdx = playerIds.indexOf(this.getDefendingPlayerName());
+        const playerNames = Array.from(this.players.keys());
+        const defendingPlayerIdx = playerNames.indexOf(this.getDefendingPlayerName());
 
-        return playerIds[Math.abs(defendingPlayerIdx + offset) % this.players.size];
+        return playerNames[Math.abs(defendingPlayerIdx + offset) % this.players.size];
     }
 
     /**

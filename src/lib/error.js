@@ -18,6 +18,9 @@ export const UNAUTHORIZED = "User doesn't have permissions to perform this actio
 export const AUTHENTICATION_FAILED = "Authentication failed";
 export const INTERNAL_SERVER_ERROR = "Durachok Internal Server Error.";
 
+// Lobby socket request errors
+export const SOCKET_INVALID_SESSION = "Invalid session. Player not allowed to join lobby.";
+
 // Lobby API request errors
 export const NON_EXISTENT_LOBBY = "No lobby exists with the given PIN.";
 export const INVALID_PASSPHRASE = "Invalid passphrase for lobby.";
