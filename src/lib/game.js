@@ -257,7 +257,9 @@ export class Game {
 
         // Also check that the current card is allowed to be added to the deck. To determine this,
         // the cardLabel of the card to be added must be present on the tableTop.
-        if (!this.getTableTopDeck().map(item => parseCard(item)[0]).includes(cardNumeric)) {
+        const tableTopCards = this.getTableTopDeck();
+
+        if (tableTopCards.length > 0 && !tableTopCards.map(item => parseCard(item)[0]).includes(cardNumeric)) {
             throw new Error("Card numerical value isn't present on the table top.");
         }
 
