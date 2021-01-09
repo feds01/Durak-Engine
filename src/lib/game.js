@@ -460,14 +460,7 @@ export class Game {
      * @return {String} the 'id' of the defending player.
      * */
     getDefendingPlayerName() {
-        const generator = this.players.keys();
-        let nextItem = generator.next();
-
-        while (!(nextItem.done || this.players.get(nextItem.value).isDefending)) {
-            nextItem = generator.next();
-        }
-
-        return nextItem.value;
+        return Array.from(this.players.keys()).find(name => this.players.get(name).isDefending);
     }
 
     /**
