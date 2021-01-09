@@ -141,7 +141,14 @@ export class Game {
 
         // Select the first remaining card and set the 'suit' of the game and then
         // shift the first element to the end of the stack.
-        this.trumpSuit = parseCard(this.deck[0])[1];
+        const [trumpValue, trumpSuit] = parseCard(this.deck[0]);
+
+        this.trumpCard = {
+            value: trumpValue,
+            suit: trumpSuit,
+            card: this.deck[0],
+        }
+
         this.deck.push(this.deck.shift());
     }
 
@@ -172,8 +179,7 @@ export class Game {
             // Take the cards from the table top and move them into the players
             // personal deck
             const player = this.players.get(this.getDefendingPlayerName());
-
-            player.deck = [player.deck, ...this.getTableTopDeck()];
+            player.deck = [...player.deck, ...this.getTableTopDeck()];
 
             this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 1));
         } else {
@@ -193,12 +199,12 @@ export class Game {
             const playerIds = Array.from(this.players.keys());
             const playerIdx = playerIds.indexOf(this.getDefendingPlayerName());
 
-            for (let id of [...playerIds.slice(0, playerIdx), ...playerIds.slice(playerIdx, playerIds.length)]) {
-                const player = this.players.get(id);
+            for (let name of [...playerIds.slice(0, playerIdx), ...playerIds.slice(playerIdx, playerIds.length)]) {
+                const player = this.players.get(name);
 
                 // update the deck and set the 'turned' value to false ready for next round
                 if (player.deck.length < 6) {
-                    player.deck = [...player.deck, this.deck.splice(0, 6 - player.deck.length)];
+                    player.deck = [...player.deck, ...this.deck.splice(0, 6 - player.deck.length)];
                 }
 
                 player.turned = false;
@@ -348,7 +354,7 @@ export class Game {
             if (numeric > coveringNumeric) {
                 throw new Error("Covering card must have a higher value.");
             }
-        } else if (coveringSuit !== this.trumpSuit) {
+        } else if (coveringSuit !== this.trumpCard.suit) {
             throw new Error(`Covering card suit must be the same suit as the table card and have a higher numerical value.`);
         }
 
@@ -416,7 +422,7 @@ export class Game {
         // If this is the attacking player, set everyone's 'canAttack' (except defending)
         // player as true since the move has been made..
         const defendingPlayer = this.getDefendingPlayerName();
-        const attackingPlayer = this.getPlayerNameByOffset(-1);
+        const attackingPlayer = this.getPlayerNameByOffset(defendingPlayer, -1);
 
         if (attackingPlayer === name) {
             this.players.forEach((player, name) => {
@@ -561,13 +567,13 @@ export class Game {
      * This method is used to serialize the object so it can be written to the database
      * or send over a http transmission.
      *
-     * @return {{players: Map, history: Object, trumpSuit: String, deck: Array, tableTop: Map}}
+     * @return {{players: Map, history: Object, trumpCard: {value: Number, suit: String, card: String}, deck: Array, tableTop: Map}}
      * */
     serialize() {
         return {
             players: this.players,
             history: this.history,
-            trumpSuit: this.trumpSuit,
+            trumpCard: this.trumpCard,
             deck: this.deck,
             tableTop: this.tableTop,
         }
