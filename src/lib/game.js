@@ -157,11 +157,6 @@ export class Game {
             throw new Error("Cannot finalise round before any cards have been played.");
         }
 
-        // check that all players have declared that they finished the round.
-        if (!Array.from(this.players.values()).every(player => player.turned)) {
-            throw new Error("Cannot finalise round since not all players have declared that they finished the round");
-        }
-
         // get the round starter before it is overwritten by the 'defense' transfer
         const roundStarter = this.getRoundStarter();
 
@@ -178,6 +173,11 @@ export class Game {
 
             this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 2));
         } else {
+            // check that all players have declared that they finished the round.
+            if (!Array.from(this.players.values()).every(player => player.turned)) {
+                throw new Error("Cannot finalise round since not all players have declared that they finished the round");
+            }
+
             this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 1));
         }
 
@@ -389,7 +389,7 @@ export class Game {
         } else {
             // only unset if there even exists a defending player. This can happen
             // when a game is being initialised and there is no current defender.
-            attackingPlayerName = this.getPlayerNameByOffset(defendingPlayerName, -1);
+            attackingPlayerName = this.getPlayerNameByOffset(name, -1);
         }
 
         // reset everyone's 'canAttack' privileges...
