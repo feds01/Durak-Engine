@@ -162,17 +162,13 @@ export class Game {
      * iterate over all the players to replenish the player card decks.
      * */
     finaliseRound() {
-        const generator = this.tableTop.entries();
-        let nextItem = generator.next();
         let forfeitRound = false;
 
-        while (!nextItem.done || forfeitRound) {
-            if (nextItem.value[1] === null) {
-                forfeitRound = true
+        Array.from(this.tableTop.keys()).map((card) => {
+            if (this.tableTop.get(card) === null) {
+                forfeitRound = true;
             }
-
-            nextItem = generator.next();
-        }
+        });
 
         // TODO: check that all players have declared that they finished the round.
         if (forfeitRound) {
@@ -196,14 +192,13 @@ export class Game {
             // attacking player and the rest following in a clockwise manner.
             // TODO: Actually we need to record who the first attacking player was of this round
             //      since it's possible that the prime 'attacking' status can be transferred...
-            const playerIds = Array.from(this.players.keys());
-            const playerIdx = playerIds.indexOf(this.getDefendingPlayerName());
+            const player = this.getPlayerNameByOffset(this.getDefendingPlayerName(), 1);
 
-            for (let name of [...playerIds.slice(0, playerIdx), ...playerIds.slice(playerIdx, playerIds.length)]) {
-                const player = this.players.get(name);
+            for (let offset = 0; offset < this.players.size - 1; offset++) {
+                const nameByOffset = this.getPlayerNameByOffset(player, offset);
+                const playerByOffset = this.players.get(nameByOffset);
 
-                // update the deck and set the 'turned' value to false ready for next round
-                if (player.deck.length < 6) {
+                if (playerByOffset.deck < 6) {
                     player.deck = [...player.deck, ...this.deck.splice(0, 6 - player.deck.length)];
                 }
 
