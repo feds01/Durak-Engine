@@ -161,7 +161,7 @@ export class Game {
         const roundStarter = this.getRoundStarter();
 
         // Check that all of the cards have been covered by the defending player...
-        let forfeitRound = Array.from(this.tableTop.values()).any((card) => {
+        let forfeitRound = Array.from(this.tableTop.values()).some((card) => {
             return card === null;
         });
 
