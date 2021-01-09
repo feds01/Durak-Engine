@@ -107,6 +107,7 @@ export class Game {
                 this.players.set(players[index], {
                     deck: [],
                     canAttack: false,
+                    beganRound: false,
                     turned: false,
                     isDefending: false,
                 });
@@ -123,21 +124,7 @@ export class Game {
         // select the attacking player randomly, the SDK can provide a method
         // for overriding the starting attacking player later on...
         const chosenDefendingPlayer = getRandomKey(this.players);
-
-        this.players.get(chosenDefendingPlayer).isDefending = true;
-
-        // map object guarantees that keys are iterated by insertion order, so we can
-        // get the previous player and set their 'canAttack' value as true since they
-        // start the round...
-        const names = Array.from(this.players.keys());
-        const idx = names.indexOf(chosenDefendingPlayer);
-
-        if (idx === 0) {
-            this.players.get(names[names.length - 1]).canAttack = true;
-        } else {
-            this.players.get(names[idx - 1]).canAttack = true;
-        }
-
+        this.setDefendingPlayer(chosenDefendingPlayer);
 
         // Select the first remaining card and set the 'suit' of the game and then
         // shift the first element to the end of the stack.
@@ -160,26 +147,37 @@ export class Game {
      * on the fact if the current defending player managed to successfully defend
      * themselves or has decided to pickup the cards. Additionally, the method should
      * iterate over all the players to replenish the player card decks.
+     *
+     * TODO: add this transaction as a history node.
      * */
     finaliseRound() {
-        let forfeitRound = false;
+        // the round cannot be finalised if no cards were ever put down on to the table
+        if (this.tableTop.size === 0) {
+            throw new Error("Cannot finalise round before any cards have been played.");
+        }
 
-        Array.from(this.tableTop.keys()).map((card) => {
-            if (this.tableTop.get(card) === null) {
-                forfeitRound = true;
-            }
+        // check that all players have declared that they finished the round.
+        if (!Array.from(this.players.values()).every(player => player.turned)) {
+            throw new Error("Cannot finalise round since not all players have declared that they finished the round");
+        }
+
+        // get the round starter before it is overwritten by the 'defense' transfer
+        const roundStarter = this.getRoundStarter();
+
+        // Check that all of the cards have been covered by the defending player...
+        let forfeitRound = Array.from(this.tableTop.values()).any((card) => {
+            return card === null;
         });
 
-        // TODO: check that all players have declared that they finished the round.
         if (forfeitRound) {
             // Take the cards from the table top and move them into the players
             // personal deck
             const player = this.players.get(this.getDefendingPlayerName());
             player.deck = [...player.deck, ...this.getTableTopDeck()];
 
-            this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 1));
-        } else {
             this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 2));
+        } else {
+            this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 1));
         }
 
         this.voidTableTop();
@@ -188,17 +186,13 @@ export class Game {
         // replenish the players' card decks.
         if (this.deck.length > 0) {
 
-            // we need to transpose the player list to begin with the current
-            // attacking player and the rest following in a clockwise manner.
-            // TODO: Actually we need to record who the first attacking player was of this round
-            //      since it's possible that the prime 'attacking' status can be transferred...
-            const player = this.getPlayerNameByOffset(this.getDefendingPlayerName(), 1);
-
-            for (let offset = 0; offset < this.players.size - 1; offset++) {
-                const nameByOffset = this.getPlayerNameByOffset(player, offset);
+            // we need to transpose the player list to begin with the player
+            // who began the round and the rest following in a clockwise manner.
+            for (let offset = 0; offset < this.players.size; offset++) {
+                const nameByOffset = this.getPlayerNameByOffset(roundStarter, offset);
                 const playerByOffset = this.players.get(nameByOffset);
 
-                if (playerByOffset.deck < 6) {
+                if (playerByOffset.deck.length < 6) {
                     playerByOffset.deck = [...playerByOffset.deck, ...this.deck.splice(0, 6 - playerByOffset.deck.length)];
                 }
 
@@ -283,9 +277,13 @@ export class Game {
             this.setDefendingPlayer(this.getPlayerNameByOffset(name, 1));
         }
 
-        // TODO: add this transaction as a history node.
-        // finally, if everything passes then add the card to the table top from the player's deck.
+        // add the card to the table top from the player's deck.
         this.transferCardOntoTable(player, card);
+
+        // finally, reset everybody's 'turned' value since the tableTop state changed.
+        this.players.forEach((player, name) => {
+            player.turned = false;
+        });
     }
 
     /**
@@ -312,6 +310,8 @@ export class Game {
      *
      * @param {String} card - The card that's going to be used to cover the table top card.
      * @param {number} pos - The position of the card that's going to be covered.
+     *
+     * TODO: add this transaction as a history node.
      * */
     coverCardOnTableTop(card, pos) {
         const defendingPlayer = this.players.get(this.getDefendingPlayerName());
@@ -356,6 +356,11 @@ export class Game {
         // Transfer the player card from their deck to the the table top.
         this.tableTop.set(this.getCardOnTableTopAt(pos), card);
         defendingPlayer.deck = defendingPlayer.deck.filter((playerCard) => playerCard !== card);
+
+        // finally, reset everybody's 'turned' value since the tableTop state changed.
+        this.players.forEach((player, name) => {
+            player.turned = false;
+        });
     }
 
     /**
@@ -376,11 +381,15 @@ export class Game {
 
         // unset the current defending player status, and then set the status
         // of the given player id as defending.
-        const defendingPlayer = this.getDefendingPlayerName();
+        const defendingPlayerName = this.getDefendingPlayerName();
+        let attackingPlayerName;
 
-        // only unset if there even exists a defending player
-        if (typeof defendingPlayer === "undefined") {
-            throw new Error("Invalid game state, defending player doesn't exist.");
+        if (typeof defendingPlayerName !== "undefined") {
+            attackingPlayerName = defendingPlayerName;
+        } else {
+            // only unset if there even exists a defending player. This can happen
+            // when a game is being initialised and there is no current defender.
+            attackingPlayerName = this.getPlayerNameByOffset(defendingPlayerName, -1);
         }
 
         // reset everyone's 'canAttack' privileges...
@@ -389,8 +398,19 @@ export class Game {
         });
 
 
-        this.players.get(defendingPlayer).isDefending = false;
-        this.players.get(defendingPlayer).canAttack = true;
+        // Update the parameters for the attacking player...
+        let attackingPlayer = this.players.get(attackingPlayerName);
+
+        attackingPlayer = {
+            ...attackingPlayer,
+            isDefending: false,
+            canAttack: true,
+            beganRound: true,
+        }
+
+        // TODO: add this transaction as a history node.
+        this.players.set(attackingPlayerName, attackingPlayer);
+
 
         player.isDefending = true;
         player.canAttack = false;
@@ -403,6 +423,8 @@ export class Game {
      *
      * @param {String} name - The name of the player that the defending status
      *        is being transferred to.
+     *
+     * TODO: add this transaction as a history node.
      * */
     finalisePlayerTurn(name) {
         const player = this.players.get(name);
@@ -473,6 +495,18 @@ export class Game {
 
     /**
      * @version 1.0.0
+     * Method to retrieve the player who started the current round, this method
+     * is used to determine how cards should be handed out(replenished) at the end
+     * of a round if any player needs cards to fill their deck.
+     *
+     * @return {String} the name of the player who initiated the round.
+     * */
+    getRoundStarter() {
+        return Array.from(this.players.keys()).find((name) => this.players.get(name).beganRound);
+    }
+
+    /**
+     * @version 1.0.0
      * This function is used to return the contents of the table top in the form of
      * an array. The function does not return 'empty' slots if there are any present.
      *
@@ -507,6 +541,8 @@ export class Game {
      * @param {Object} player - The player object that holds player state.
      * @param {String} card - The card that's being transferred from the players deck
      *        to the tableTop deck.
+     *
+     * TODO: add this transaction as a history node.
      * */
     transferCardOntoTable(player, card) {
         if (!(this.tableTop.size < 6)) {
@@ -535,13 +571,14 @@ export class Game {
      * exist, the contents are transferred to the players deck, the table top is cleared.
      *
      * @param {String} to - the 'id' of the player that the table top is being transferred to.
+     *
+     * TODO: add this transaction as a history node.
      * */
     transferTableTop(to) {
         if (!this.players.has(to)) {
             throw new Error("Player doesn't exist.");
         }
 
-        // TODO: add this transaction as a history node.
         this.players.get(to).deck.push(...this.getTableTopDeck());
         this.voidTableTop();
     }
@@ -552,9 +589,10 @@ export class Game {
      * This function will void all the cards that are currently on the table top
      * because it is the end of the round, and the defending player successfully
      * defended themselves against the attackers.
+     *
+     * TODO: add this transaction as a history node.
      * */
     voidTableTop() {
-        // TODO: add this transaction as a history node.
         this.tableTop.clear();
     }
 
