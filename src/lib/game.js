@@ -70,6 +70,7 @@ export class Game {
      * Game constructor initialises the game deck, players and the
      * history object.
      *
+     * @constructor
      * @param {Array<String>} players An array of player names that are within the game.
      * @param {Array<{}>} history - An array of history nodes for the game to rebuild the previous
      * state from.
@@ -148,7 +149,7 @@ export class Game {
      * themselves or has decided to pickup the cards. Additionally, the method should
      * iterate over all the players to replenish the player card decks.
      *
-     * TODO: add this transaction as a history node.
+     * @todo add this transaction as a history node.
      * */
     finaliseRound() {
         // the round cannot be finalised if no cards were ever put down on to the table
@@ -311,7 +312,7 @@ export class Game {
      * @param {String} card - The card that's going to be used to cover the table top card.
      * @param {number} pos - The position of the card that's going to be covered.
      *
-     * TODO: add this transaction as a history node.
+     * @todo add this transaction as a history node.
      * */
     coverCardOnTableTop(card, pos) {
         const defendingPlayer = this.players.get(this.getDefendingPlayerName());
@@ -374,7 +375,6 @@ export class Game {
     setDefendingPlayer(name) {
         const player = this.players.get(name);
 
-        // player doesn't exist.
         if (typeof player === 'undefined') {
             throw new Error("Player doesn't exist.");
         }
@@ -424,7 +424,7 @@ export class Game {
      * @param {String} name - The name of the player that the defending status
      *        is being transferred to.
      *
-     * TODO: add this transaction as a history node.
+     * @todo add this transaction as a history node.
      * */
     finalisePlayerTurn(name) {
         const player = this.players.get(name);
@@ -542,7 +542,7 @@ export class Game {
      * @param {String} card - The card that's being transferred from the players deck
      *        to the tableTop deck.
      *
-     * TODO: add this transaction as a history node.
+     * @todo add this transaction as a history node.
      * */
     transferCardOntoTable(player, card) {
         if (!(this.tableTop.size < 6)) {
@@ -572,7 +572,7 @@ export class Game {
      *
      * @param {String} to - the 'id' of the player that the table top is being transferred to.
      *
-     * TODO: add this transaction as a history node.
+     * @todo add this transaction as a history node.
      * */
     transferTableTop(to) {
         if (!this.players.has(to)) {
@@ -590,10 +590,57 @@ export class Game {
      * because it is the end of the round, and the defending player successfully
      * defended themselves against the attackers.
      *
-     * TODO: add this transaction as a history node.
+     * @todo add this transaction as a history node.
      * */
     voidTableTop() {
         this.tableTop.clear();
+    }
+
+    /**
+     * Method used to generate a game state from the perspective of a player. Using the player
+     * name, a game state is constructed; notifying the given player with how many cards are in the
+     * deck, how many other cards players hold, who has turned, etc.
+     *
+     * It's important that the information that this method generates for a player does not
+     * give any more information than it should. Otherwise the game might not be considered to
+     * be fair.
+     *
+     * @param {String} name - The name of the player to generate state for
+     * */
+    getStateForPlayer(name) {
+        const player = this.players.get(name);
+
+        if (typeof player === 'undefined') {
+            throw new Error("Player doesn't exist.");
+        }
+
+        return {
+            deck: player.deck,
+            isDefending: player.isDefending,
+            canAttack: player.canAttack,
+            turned: player.turned,
+
+            // general info about the game state
+            trumpCard: this.trumpCard,
+            deckSize: this.deck.length,
+            tableTop: Object.fromEntries(this.tableTop),
+
+            // information about other players, including how many cards they
+            // are holding, if they have turned, and if they are defending...
+            players: Array.from(this.players.keys())
+                .filter(name => name !== player.name)
+                .map(name => {
+                    const player = this.players.get(name);
+
+                    return {
+                        [name]: {
+                            size: player.deck.length,
+                            isDefending: player.isDefending,
+                            turned: player.turned,
+                        }
+                    }
+                }),
+        }
     }
 
     /**
