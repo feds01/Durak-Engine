@@ -199,10 +199,10 @@ export class Game {
                 const playerByOffset = this.players.get(nameByOffset);
 
                 if (playerByOffset.deck < 6) {
-                    player.deck = [...player.deck, ...this.deck.splice(0, 6 - player.deck.length)];
+                    playerByOffset.deck = [...playerByOffset.deck, ...this.deck.splice(0, 6 - playerByOffset.deck.length)];
                 }
 
-                player.turned = false;
+                playerByOffset.turned = false;
             }
         }
     }
