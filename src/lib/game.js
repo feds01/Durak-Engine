@@ -407,47 +407,27 @@ export class Game {
      *        is being transferred to.
      * */
     setDefendingPlayer(name) {
-        const player = this.players.get(name);
+        const defendingPlayer = this.players.get(name);
 
-        if (typeof player === 'undefined') {
+        if (typeof defendingPlayer === 'undefined') {
             throw new Error("Player doesn't exist.");
         }
 
-        // unset the current defending player status, and then set the status
-        // of the given player id as defending.
-        const defendingPlayerName = this.getDefendingPlayerName();
-        let attackingPlayerName;
-
-        if (typeof defendingPlayerName !== "undefined") {
-            attackingPlayerName = defendingPlayerName;
-        } else {
-            // only unset if there even exists a defending player. This can happen
-            // when a game is being initialised and there is no current defender.
-            attackingPlayerName = this.getPlayerNameByOffset(name, -1);
-        }
-
-        // reset everyone's 'canAttack' privileges...
+        // reset everyone's privileges for attacking/defending...
         this.players.forEach((player, name) => {
             player.canAttack = false;
+            player.beganRound = false;
+            player.isDefending = false;
+            player.turned = false;
         });
 
+        // Update the parameters for the attacking and defending player...
+        let attackingPlayer = this.players.get(this.getPlayerNameByOffset(name, -1));
 
-        // Update the parameters for the attacking player...
-        let attackingPlayer = this.players.get(attackingPlayerName);
+        attackingPlayer.canAttack = true;
+        attackingPlayer.beganRound = true;
 
-        attackingPlayer = {
-            ...attackingPlayer,
-            isDefending: false,
-            canAttack: true,
-            beganRound: true,
-        }
-
-        // TODO: add this transaction as a history node.
-        this.players.set(attackingPlayerName, attackingPlayer);
-
-
-        player.isDefending = true;
-        player.canAttack = false;
+        defendingPlayer.isDefending = true;
     }
 
     /**
