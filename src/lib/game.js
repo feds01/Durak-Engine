@@ -106,6 +106,7 @@ export class Game {
             return;
         }
 
+        this.hasVictory = false;
 
         // generate card deck and shuffle it for the game
         this.deck = generateCardDeck();
@@ -118,6 +119,7 @@ export class Game {
                 canAttack: false,
                 beganRound: false,
                 turned: false,
+                out: null,
                 isDefending: false,
             });
         }
@@ -158,6 +160,7 @@ export class Game {
      *     tableTop: Object<string, string>,
      *     deck: Array<string>,
      *     trumpCard: {value: number, suit: string, card: string},
+     *     hasVictory: boolean,
      * }} state - The game state including players, history, tableTop, deck and trump card.
      *
      * @return {Game} A game object from the game state.
@@ -169,6 +172,7 @@ export class Game {
         game.tableTop = new Map(Object.entries(state.tableTop));
         game.players = new Map(Object.entries(state.players));
         game.deck = state.deck;
+        game.hasVictory = state.hasVictory;
 
         return game;
     }
@@ -216,10 +220,9 @@ export class Game {
         // Check if the 'spare' deck size is greater than zero and therefore we can
         // replenish the players' card decks.
         if (this.deck.length > 0) {
-
             // we need to transpose the player list to begin with the player
             // who began the round and the rest following in a clockwise manner.
-            for (let offset = 0; offset < this.players.size; offset++) {
+            for (let offset = 0; offset < this.getActivePlayers().length; offset++) {
                 const nameByOffset = this.getPlayerNameByOffset(roundStarter, offset);
                 const playerByOffset = this.players.get(nameByOffset);
 
@@ -228,8 +231,28 @@ export class Game {
                 }
 
                 playerByOffset.turned = false;
+
+                // no point of distributing the cards if there are no cards left.
+                if (this.deck.length === 0) break;
             }
         }
+
+        let hasVictory = true;
+
+        // victory condition: check if the defender is the only player who isn't out.
+        this.getActivePlayers().forEach(([name, player]) => {
+
+            // check if we need to declare someone as 'out' of the game.
+            if (player.deck.length === 0) {
+                player.out = Date.now();
+            }
+
+            if (name !== this.getDefendingPlayerName() && player.out === null) {
+                hasVictory = false;
+            }
+        });
+
+        this.hasVictory = hasVictory;
     }
 
     /**
@@ -265,11 +288,11 @@ export class Game {
         if (typeof player === 'undefined') throw new Error("Player doesn't exist.");
 
         // Now check the presence of the given card, in the players deck.
-        const [cardNumeric] = parseCard(card);
         if (!player.deck.includes(card)) throw new Error("Player doesn't hold current card");
 
         // Also check that the current card is allowed to be added to the deck. To determine this,
         // the cardLabel of the card to be added must be present on the tableTop.
+        const [cardNumeric] = parseCard(card);
         const tableTopCards = this.getTableTopDeck();
 
         if (tableTopCards.length > 0 && !tableTopCards.map(item => parseCard(item)[0]).includes(cardNumeric)) {
@@ -280,11 +303,8 @@ export class Game {
         // to the left hand side player. This can be checked by the fact if the 'card' they
         // are trying to cover is equal to null.
         if (player.isDefending) {
-            // check that the defending play is able to cover the table top cards.
-            const coveredCards = Array.from(this.tableTop.values()).filter((item) => item !== null);
-
             // the player can't transfer defense if any of the cards are covered...
-            if (coveredCards.length !== 0) {
+            if (this.getCoveredCount() !== 0) {
                 throw new Error("Player can't transfer defense since they have covered a card.")
             }
 
@@ -310,6 +330,12 @@ export class Game {
 
         // add the card to the table top from the player's deck.
         this.transferCardOntoTable(player, card);
+
+        // check if the player has no cards in the deck and there no cards in the game deck, then the
+        // current player has 'won' the game and apply a timestamp to when they exited the round.
+        if (player.deck.length === 0 && this.deck.length === 0) {
+            player.out = Date.now();
+        }
     }
 
     /**
@@ -383,10 +409,15 @@ export class Game {
         this.tableTop.set(this.getCardOnTableTopAt(pos), card);
         defendingPlayer.deck = defendingPlayer.deck.filter((playerCard) => playerCard !== card);
 
-        // finally, reset everybody's (except defender) 'turned' value since the tableTop state changed.
-        this.players.forEach((player, name) => {
-            player.turned = false;
-        });
+        // check if the whole table has been covered, then invoke finaliseRound()
+        if (this.getCoveredCount() === Game.DeckSize) {
+            this.finaliseRound();
+        } else {
+            // reset everybody's (except defender) 'turned' value since the tableTop state changed.
+            this.getActivePlayers().forEach(([name, player]) => {
+                player.turned = false;
+            });
+        }
     }
 
     /**
@@ -451,11 +482,15 @@ export class Game {
         const attackingPlayer = this.getPlayerNameByOffset(defendingPlayerName, -1);
 
         if (attackingPlayer === name) {
-            this.players.forEach((player, name) => {
+            this.getActivePlayers().forEach(([name, player]) => {
                 if (name !== defendingPlayerName) {
                     player.canAttack = true;
                 }
             });
+        }
+
+        if (this.getActivePlayers().every(player => player[1].turned)) {
+            this.finaliseRound();
         }
 
 
@@ -464,13 +499,13 @@ export class Game {
         // finaliseRound since nobody can perform any additional action on the tabletop.
         let canFinalise = true;
 
-        this.players.forEach((player, name) => {
-            if (!player.turned) {
+        this.getActivePlayers().forEach(([name, player]) => {
+            if (!player.turned && name !== defendingPlayerName) {
                 canFinalise = false;
             }
         });
 
-        if (canFinalise) this.finaliseRound();
+        if (canFinalise && this.getCoveredCount() === this.tableTop.size) this.finaliseRound();
     }
 
 
@@ -498,7 +533,7 @@ export class Game {
      * @return {String} the name of player 'offset' positions after the given one.
      * */
     getPlayerNameByOffset(name, offset) {
-        const playerNames = Array.from(this.players.keys());
+        const playerNames = this.getActivePlayers().map(([name]) => name);
         const playerIndex = playerNames.indexOf(name);
 
         if (playerIndex < 0) {
@@ -506,6 +541,16 @@ export class Game {
         }
 
         return playerNames[Math.abs(playerIndex + offset) % this.players.size];
+    }
+
+    /**
+     * @version 1.0.0
+     * Return the players that are still in the game.
+     *
+     * @returns {Array<Array<string, object>>} An array of player name with the player's state.
+     * */
+    getActivePlayers() {
+        return Array.from(this.players.entries()).filter((player) => player[1].out === null);
     }
 
     /**
@@ -531,6 +576,15 @@ export class Game {
         return Array.from(this.tableTop.entries()).flat().filter(item => item !== null);
     }
 
+    /**
+     * @version 1.0.0
+     * Method to get the number of cards that have been covered on the table top.
+     *
+     * @return {number} the number of covered cards.
+     * */
+    getCoveredCount() {
+        return Array.from(this.tableTop.values()).filter((item) => item !== null).length;
+    }
     /**
      * Method to get a bottom card of the table top by a position on the table.
      *
@@ -674,6 +728,7 @@ export class Game {
         return {
             players: this.players,
             history: this.history,
+            hasVictory: this.hasVictory,
             trumpCard: this.trumpCard,
             deck: this.deck,
             tableTop: this.tableTop,
