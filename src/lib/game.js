@@ -260,7 +260,7 @@ export class Game {
      * */
     addCardToTableTop(name, card) {
         // check if the deck is already filled up.
-        if (!(this.tableTop.size < 6)) {
+        if (this.tableTop.size === 6) {
             throw new Error("Player deck already full.");
         }
 
@@ -572,7 +572,7 @@ export class Game {
      * @todo add this transaction as a history node.
      * */
     transferCardOntoTable(player, card) {
-        if (!(this.tableTop.size < 6)) {
+        if (this.tableTop.size === 6) {
             throw new Error("Player deck already full.");
         }
 
@@ -581,7 +581,7 @@ export class Game {
         }
 
         this.tableTop.set(card, null);
-        player.deck = player.deck.filter((tableCard) => tableCard !== card);
+        player.deck.slice(player.deck.indexOf(card));
     }
 
     /**
