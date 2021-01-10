@@ -152,21 +152,23 @@ export class Game {
      * @version 1.0.0
      * Create a game object from a previous game state.
      *
-     * @param {Object<string, Object>} players - The players present in the game.
-     * @param {Object<number, Object>} history - Game history
-     * @param {Object<string, string>} tableTop - The current game table top.
-     * @param {Array<String>} deck - The current game deck.
-     * @param {{value: number, suit: string, card: string}} trumpCard - The game's trump card.
+     * @param {{
+     *     players: Object<string, Object>,
+     *     history: Object<number, Object>,
+     *     tableTop: Object<string, string>,
+     *     deck: Array<string>,
+     *     trumpCard: {value: number, suit: string, card: string},
+     * }} state - The game state including players, history, tableTop, deck and trump card.
      *
      * @return {Game} A game object from the game state.
      * */
-    static fromState(players, history, tableTop, deck, trumpCard) {
-        const game = new Game(Object.keys(players), new Map(Object.entries(history)), false);
+    static fromState(state) {
+        const game = new Game(Object.keys(state.players), new Map(Object.entries(state.history)), false);
 
-        game.trumpCard = trumpCard;
-        game.tableTop = new Map(Object.entries(tableTop));
-        game.players = new Map(Object.entries(players));
-        game.deck = deck;
+        game.trumpCard = state.trumpCard;
+        game.tableTop = new Map(Object.entries(state.tableTop));
+        game.players = new Map(Object.entries(state.players));
+        game.deck = state.deck;
 
         return game;
     }
