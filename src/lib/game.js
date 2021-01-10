@@ -208,10 +208,6 @@ export class Game {
             this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 2));
         } else {
             // check that all players have declared that they finished the round.
-            if (!Array.from(this.players.values()).every(player => player.turned)) {
-                throw new Error("Cannot finalise round since not all players have declared that they finished the round");
-            }
-
             this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 1));
         }
 
@@ -288,7 +284,7 @@ export class Game {
             const coveredCards = Array.from(this.tableTop.values()).filter((item) => item !== null);
 
             // the player can't transfer defense if any of the cards are covered...
-            if (coveredCards.length !== this.tableTop.size) {
+            if (coveredCards.length !== 0) {
                 throw new Error("Player can't transfer defense since they have covered a card.")
             }
 
@@ -314,11 +310,6 @@ export class Game {
 
         // add the card to the table top from the player's deck.
         this.transferCardOntoTable(player, card);
-
-        // finally, reset everybody's 'turned' value since the tableTop state changed.
-        this.players.forEach((player, name) => {
-            player.turned = false;
-        });
     }
 
     /**
@@ -392,7 +383,7 @@ export class Game {
         this.tableTop.set(this.getCardOnTableTopAt(pos), card);
         defendingPlayer.deck = defendingPlayer.deck.filter((playerCard) => playerCard !== card);
 
-        // finally, reset everybody's 'turned' value since the tableTop state changed.
+        // finally, reset everybody's (except defender) 'turned' value since the tableTop state changed.
         this.players.forEach((player, name) => {
             player.turned = false;
         });
@@ -448,21 +439,38 @@ export class Game {
             throw new Error("Player doesn't exist.")
         }
 
+        if (this.tableTop.size === 0) {
+            throw new Error("Cannot finalise turn when no cards have been placed.");
+        }
+
         player.turned = true;
 
         // If this is the attacking player, set everyone's 'canAttack' (except defending)
         // player as true since the move has been made..
-        const defendingPlayer = this.getDefendingPlayerName();
-        const attackingPlayer = this.getPlayerNameByOffset(defendingPlayer, -1);
+        const defendingPlayerName = this.getDefendingPlayerName();
+        const attackingPlayer = this.getPlayerNameByOffset(defendingPlayerName, -1);
 
         if (attackingPlayer === name) {
             this.players.forEach((player, name) => {
-                if (name !== defendingPlayer) {
+                if (name !== defendingPlayerName) {
                     player.canAttack = true;
                 }
             });
         }
 
+
+        // The case where if everyone but the defending player declares that they have
+        // finished the round, and all cards are covered by the defender, we invoke
+        // finaliseRound since nobody can perform any additional action on the tabletop.
+        let canFinalise = true;
+
+        this.players.forEach((player, name) => {
+            if (!player.turned) {
+                canFinalise = false;
+            }
+        });
+
+        if (canFinalise) this.finaliseRound();
     }
 
 
