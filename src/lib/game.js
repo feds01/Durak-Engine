@@ -264,27 +264,13 @@ export class Game {
             throw new Error("Player deck already full.");
         }
 
+        // Check that the player exists
         const player = this.players.get(name);
-
-        // check if the id is valid
         if (typeof player === 'undefined') throw new Error("Player doesn't exist.");
 
-        // check that the defending play is able to cover the table top cards.
-        const coveredCards = Array.from(this.tableTop.values()).filter((item) => item !== null);
-
-        // get the next player from this one...
-        const nextPlayer = this.players.get(this.getPlayerNameByOffset(name, 1));
-
-        if (this.tableTop.size - coveredCards.length + 1 > nextPlayer.deck.length) {
-            throw new Error("Player doesn't have enough cards to cover attack.");
-        }
-
-        const [cardNumeric] = parseCard(card);
-
         // Now check the presence of the given card, in the players deck.
-        if (!player.deck.includes(card)) {
-            throw new Error("Player doesn't hold current card");
-        }
+        const [cardNumeric] = parseCard(card);
+        if (!player.deck.includes(card)) throw new Error("Player doesn't hold current card");
 
         // Also check that the current card is allowed to be added to the deck. To determine this,
         // the cardLabel of the card to be added must be present on the tableTop.
@@ -298,6 +284,20 @@ export class Game {
         // to the left hand side player. This can be checked by the fact if the 'card' they
         // are trying to cover is equal to null.
         if (player.isDefending) {
+            // check that the defending play is able to cover the table top cards.
+            const coveredCards = Array.from(this.tableTop.values()).filter((item) => item !== null);
+
+            // the player can't transfer defense if any of the cards are covered...
+            if (coveredCards.length !== this.tableTop.size) {
+                throw new Error("Player can't transfer defense since they have covered a card.")
+            }
+
+            const nextPlayerName = this.getPlayerNameByOffset(name, 1);
+            const nextPlayer = this.players.get(nextPlayerName);
+
+            if (this.tableTop.size + 1 > nextPlayer.deck.length) {
+                throw new Error("Player doesn't have enough cards to cover attack.");
+            }
 
             // we need to check if the player can transfer the defensive role to
             // the next player. For this to be true, all of the cards in the deck
@@ -581,7 +581,7 @@ export class Game {
         }
 
         this.tableTop.set(card, null);
-        player.deck.slice(player.deck.indexOf(card));
+        player.deck.splice(player.deck.indexOf(card));
     }
 
     /**
