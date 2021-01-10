@@ -581,7 +581,7 @@ export class Game {
         }
 
         this.tableTop.set(card, null);
-        player.deck.splice(player.deck.indexOf(card));
+        player.deck.splice(player.deck.indexOf(card), 1);
     }
 
     /**
