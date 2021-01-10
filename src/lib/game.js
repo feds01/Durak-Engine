@@ -688,6 +688,7 @@ export class Game {
             isDefending: player.isDefending,
             canAttack: player.canAttack,
             turned: player.turned,
+            out: player.out !== null,
 
             // general info about the game state
             trumpCard: this.trumpCard,
@@ -703,6 +704,7 @@ export class Game {
 
                     return {
                         [name]: {
+                            out: player.out !== null,
                             size: player.deck.length,
                             isDefending: player.isDefending,
                             turned: player.turned,
