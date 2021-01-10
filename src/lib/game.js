@@ -71,11 +71,12 @@ export class Game {
      * history object.
      *
      * @constructor
-     * @param {Array<String>} players An array of player names that are within the game.
-     * @param {Array<{}>} history - An array of history nodes for the game to rebuild the previous
+     * @param {Array<string>} players An array of player names that are within the game.
+     * @param {Map<string, any>} history - An array of history nodes for the game to rebuild the previous
      * state from.
+     * @param {boolean} generateInitialState - Whether the constructor should initiate an initial state for the game.
      * */
-    constructor(players, history = []) {
+    constructor(players, history = new Map(), generateInitialState = true) {
         this.history = history;
         this.players = new Map();
 
@@ -86,33 +87,39 @@ export class Game {
          * sets to defend against the card. */
         this.tableTop = new Map();
 
-        // generate card deck and shuffle it for the game
-        this.deck = generateCardDeck();
-        shuffleArray(this.deck);
-
-        // perform an 'id' check to see if there is a entry within MongoDB
-
         // Check if the players argument follows the specified constraints.
         if (!Number.isInteger(players) && players < 1) {
             throw new Error("Number of players must be a positive integer.");
         } else if (players > 8) {
             throw new Error("Number of players cannot be greater than eight.");
-        } else {
+        }
 
-            // check that all of the player names are unique
-            if ((new Set(players)).size !== players.length) {
-                throw new Error("Player names must be unique.")
-            }
-            // set the game up for the 'players' number.
-            for (let index = 0; index < players.length; index++) {
-                this.players.set(players[index], {
-                    deck: [],
-                    canAttack: false,
-                    beganRound: false,
-                    turned: false,
-                    isDefending: false,
-                });
-            }
+        // check that all of the player names are unique
+        if ((new Set(players)).size !== players.length) {
+            throw new Error("Player names must be unique.")
+        }
+
+
+        // If we shouldn't need to generate an initial state for the game, return
+        // here since the caller will initialise the game state.
+        if (!generateInitialState) {
+            return;
+        }
+
+
+        // generate card deck and shuffle it for the game
+        this.deck = generateCardDeck();
+        shuffleArray(this.deck);
+
+        // set the game up for the 'players' number.
+        for (let index = 0; index < players.length; index++) {
+            this.players.set(players[index], {
+                deck: [],
+                canAttack: false,
+                beganRound: false,
+                turned: false,
+                isDefending: false,
+            });
         }
 
         // distribute the cards between the players as if in a physical way
@@ -139,6 +146,31 @@ export class Game {
 
         this.deck.push(this.deck.shift());
     }
+
+
+    /**
+     * @version 1.0.0
+     * Create a game object from a previous game state.
+     *
+     * @param {Object<string, Object>} players - The players present in the game.
+     * @param {Object<number, Object>} history - Game history
+     * @param {Object<string, string>} tableTop - The current game table top.
+     * @param {Array<String>} deck - The current game deck.
+     * @param {{value: number, suit: string, card: string}} trumpCard - The game's trump card.
+     *
+     * @return {Game} A game object from the game state.
+     * */
+    static fromState(players, history, tableTop, deck, trumpCard) {
+        const game = new Game(Object.keys(players), new Map(Object.entries(history)), false);
+
+        game.trumpCard = trumpCard;
+        game.tableTop = new Map(Object.entries(tableTop));
+        game.players = new Map(Object.entries(players));
+        game.deck = deck;
+
+        return game;
+    }
+
 
     /**
      * @version 1.0.0
@@ -640,7 +672,13 @@ export class Game {
      * This method is used to serialize the object so it can be written to the database
      * or send over a http transmission.
      *
-     * @return {{players: Map, history: Object, trumpCard: {value: Number, suit: String, card: String}, deck: Array, tableTop: Map}}
+     * @return {{
+     *  trumpCard: {suit: String, value: number, card: String},
+     *  players: Map<string, Object>,
+     *  deck: Array<string>,
+     *  tableTop: Map<string, string>,
+     *  history: Map<number, Object>
+     * }}
      * */
     serialize() {
         return {
