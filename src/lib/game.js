@@ -703,12 +703,11 @@ export class Game {
                     const player = this.players.get(name);
 
                     return {
-                        [name]: {
+                            name,
                             out: player.out !== null,
                             size: player.deck.length,
                             isDefending: player.isDefending,
                             turned: player.turned,
-                        }
                     }
                 }),
         }
