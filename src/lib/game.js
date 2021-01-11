@@ -190,6 +190,10 @@ export class Game {
      * @todo add this transaction as a history node.
      * */
     finaliseRound() {
+        if (this.hasVictory) {
+            throw new Error("Can't mutate game state after victory.");
+        }
+
         // the round cannot be finalised if no cards were ever put down on to the table
         if (this.tableTop.size === 0) {
             throw new Error("Cannot finalise round before any cards have been played.");
@@ -283,6 +287,10 @@ export class Game {
             throw new Error("Player deck already full.");
         }
 
+        if (this.hasVictory) {
+            throw new Error("Can't mutate game state after victory.");
+        }
+
         // Check that the player exists
         const player = this.players.get(name);
         if (typeof player === 'undefined') throw new Error("Player doesn't exist.");
@@ -335,6 +343,11 @@ export class Game {
         // current player has 'won' the game and apply a timestamp to when they exited the round.
         if (player.deck.length === 0 && this.deck.length === 0) {
             player.out = Date.now();
+
+            // now check here if there is only one player remaining in the game.
+            if (this.getActivePlayers().length === 1) {
+                this.hasVictory = true;
+            }
         }
     }
 
@@ -367,6 +380,10 @@ export class Game {
      * */
     coverCardOnTableTop(card, pos) {
         const defendingPlayer = this.players.get(this.getDefendingPlayerName());
+
+        if (this.hasVictory) {
+            throw new Error("Can't mutate game state after victory.");
+        }
 
         // check that the 'card' is present on the table top...
         if (!defendingPlayer.deck.includes(card)) {
@@ -410,7 +427,7 @@ export class Game {
         defendingPlayer.deck = defendingPlayer.deck.filter((playerCard) => playerCard !== card);
 
         // check if the whole table has been covered, then invoke finaliseRound()
-        if (this.getCoveredCount() === Game.DeckSize) {
+        if (this.getCoveredCount() === Game.DeckSize || defendingPlayer.deck.length === 0) {
             this.finaliseRound();
         } else {
             // reset everybody's (except defender) 'turned' value since the tableTop state changed.
@@ -429,6 +446,10 @@ export class Game {
      *        is being transferred to.
      * */
     setDefendingPlayer(name) {
+        if (this.hasVictory) {
+            throw new Error("Can't mutate game state after victory.");
+        }
+
         const defendingPlayer = this.players.get(name);
 
         if (typeof defendingPlayer === 'undefined') {
@@ -463,6 +484,10 @@ export class Game {
      * @todo add this transaction as a history node.
      * */
     finalisePlayerTurn(name) {
+        if (this.hasVictory) {
+            throw new Error("Can't mutate game state after victory.");
+        }
+
         const player = this.players.get(name);
 
         // player doesn't exist.
@@ -614,6 +639,10 @@ export class Game {
      * @todo add this transaction as a history node.
      * */
     transferCardOntoTable(player, card) {
+        if (this.hasVictory) {
+            throw new Error("Can't mutate game state after victory.");
+        }
+
         if (this.tableTop.size === 6) {
             throw new Error("Player deck already full.");
         }
@@ -644,6 +673,10 @@ export class Game {
      * @todo add this transaction as a history node.
      * */
     transferTableTop(to) {
+        if (this.hasVictory) {
+            throw new Error("Can't mutate game state after victory.");
+        }
+
         if (!this.players.has(to)) {
             throw new Error("Player doesn't exist.");
         }
