@@ -674,10 +674,10 @@ export class Game {
      * give any more information than it should. Otherwise the game might not be considered to
      * be fair.
      *
-     * @param {String} name - The name of the player to generate state for
+     * @param {String} playerName - The name of the player to generate state for
      * */
-    getStateForPlayer(name) {
-        const player = this.players.get(name);
+    getStateForPlayer(playerName) {
+        const player = this.players.get(playerName);
 
         if (typeof player === 'undefined') {
             throw new Error("Player doesn't exist.");
@@ -698,7 +698,7 @@ export class Game {
             // information about other players, including how many cards they
             // are holding, if they have turned, and if they are defending...
             players: Array.from(this.players.keys())
-                .filter(name => name !== player.name)
+                .filter(name => name !== playerName)
                 .map(name => {
                     const player = this.players.get(name);
 
