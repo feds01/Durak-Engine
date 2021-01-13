@@ -16,6 +16,7 @@ export enum GameStatus {
 
 export enum ServerEvents {
     JOIN_GAME = "join_game",
+    SURRENDER = "surrender",
     UPDATE_PASSPHRASE = "update_passphrase",
     START_GAME = "start_game",
     KICK_PLAYER = "kick_player",
@@ -29,6 +30,7 @@ export enum ClientEvents {
     GAME_STARTED = "game_started",
     BEGIN_ROUND = "begin_round",
     ACTION = "action",
+    VICTORY = "victory",
 
     // @redundant event.
     UPDATED_PASSPHRASE = "updated_passphrase",

@@ -3,7 +3,7 @@ import {Player} from "./player";
 import {CardType} from "./card";
 
 export class GameState {
-    trumpCard: { suit: string; value: number; card: string };
+    trumpCard: CardType;
     tableTop: Map<string, string | null>;
     deck: string[];
     victory: boolean;
