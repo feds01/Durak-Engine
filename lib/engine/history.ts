@@ -1,3 +1,5 @@
+import {GameState} from "./state";
+
 export class History {
     private state: GameState | null;
     private nodes: GameState[] | null;
