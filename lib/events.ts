@@ -20,6 +20,7 @@ export enum ClientEvents {
     // Event signifying that an error occurred on the server side.
     ERROR,
     INVALID_MOVE,
+    STALE_GAME,
 
     // Event signifying that a connection is to be forcefully closed between client and
     // server instances.
