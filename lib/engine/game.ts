@@ -1,49 +1,21 @@
-import {getRandomKey, shuffleArray} from "./utils";
+import {getRandomKey, shuffleArray} from "../utils";
+import {CardNumerics, CardSuits} from "./consts";
+import {History} from "./history";
+import {Player} from "./player";
+import {GameState} from "./state";
+import {CardType, parseCard} from "./card";
 
-export const CardNumerics = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
-export const CardSuits = {'H': '♡', 'D': '♢', 'C': '♣', 'S': '♤'};
-
-export const GameState = Object.freeze({
-    WAITING: "WAITING",
-    STARTED: "STARTED",
-    PLAYING: "PLAYING",
-});
 
 /**
  * Generates a whole card deck for use in the format of a list. Each
  * element follows the format of '<label> of <suit>'.
  * */
-export function generateCardDeck() {
+export function generateCardDeck(): string[] {
     return CardNumerics.map((label) => {
         return Object.keys(CardSuits).map((suit) => {
             return `${label}${suit}`;
         })
     }).flat();
-}
-
-
-/**
- * Simple function to split the card string into it's 'numerical'
- * value and it's 'suit' value.
- *
- * @param {String} card String representing card which is to be parsed.
- * @return {Array<String>} The numerical and suit component of the card.
- * */
-export function parseCard(card) {
-
-    // ensure the numeric and suit are valid
-    const suit = card.substring(card.length - 1);
-    const rawNumeric = card.substring(0, card.length - 1);
-
-    if (!Object.keys(CardSuits).includes(suit)) {
-        throw new Error("Invalid card suit.");
-    }
-
-    if (!CardNumerics.includes(rawNumeric)) {
-        throw new Error("Invalid card numeric.")
-    }
-
-    return [CardNumerics.indexOf(rawNumeric) + 2, suit];
 }
 
 
@@ -54,16 +26,24 @@ export function parseCard(card) {
  * @author Alexander. E. Fedotov
  * */
 export class Game {
-    static DeckSize = 6;
+    private deck: string[] = generateCardDeck();
+    private trumpCard: CardType;
+    private tableTop: Map<string, string | null>;
 
-    /**
-     * Possible move types that any player can make.
-     * */
-    static MoveTypes = {
-        PLACE: "place",
-        COVER: "cover",
-        FORFEIT: "forfeit",
-    };
+
+    get victory(): boolean {
+        return this._victory;
+    }
+
+    set victory(value: boolean) {
+        this._victory = value;
+    }
+
+    static DeckSize: number = 6;
+
+    private readonly history: History | null;
+    private players: Map<string, Player>;
+    private _victory: boolean = false;
 
     /**
      * @version 1.0.0
@@ -72,11 +52,10 @@ export class Game {
      *
      * @constructor
      * @param {Array<string>} players An array of player names that are within the game.
-     * @param {Map<string, any>} history - An array of history nodes for the game to rebuild the previous
+     * @param {History} history - An array of history nodes for the game to rebuild the previous
      * state from.
-     * @param {boolean} generateInitialState - Whether the constructor should initiate an initial state for the game.
      * */
-    constructor(players, history = new Map(), generateInitialState = true) {
+    constructor(players: string[], history: History | null) {
         this.history = history;
         this.players = new Map();
 
@@ -88,9 +67,9 @@ export class Game {
         this.tableTop = new Map();
 
         // Check if the players argument follows the specified constraints.
-        if (!Number.isInteger(players) && players < 1) {
+        if (!Number.isInteger(players.length) && players.length < 1) {
             throw new Error("Number of players must be a positive integer.");
-        } else if (players > 8) {
+        } else if (players.length > 8) {
             throw new Error("Number of players cannot be greater than eight.");
         }
 
@@ -99,54 +78,38 @@ export class Game {
             throw new Error("Player names must be unique.")
         }
 
-
-        // If we shouldn't need to generate an initial state for the game, return
-        // here since the caller will initialise the game state.
-        if (!generateInitialState) {
-            return;
-        }
-
-        this.hasVictory = false;
-
         // generate card deck and shuffle it for the game
-        this.deck = generateCardDeck();
         shuffleArray(this.deck);
 
         // set the game up for the 'players' number.
         for (let index = 0; index < players.length; index++) {
-            this.players.set(players[index], {
-                deck: [],
-                canAttack: false,
-                beganRound: false,
-                turned: false,
-                out: null,
-                isDefending: false,
-            });
+            this.players.set(players[index], new Player());
         }
 
         // distribute the cards between the players as if in a physical way
         for (let index = 0; index < Game.DeckSize; index++) {
-            this.players.forEach((value, key) => {
-                this.players.get(key).deck.push(this.deck.shift());
+            this.players.forEach((player) => {
+                player.addCard(<string>this.deck.shift());
             });
         }
 
         // select the attacking player randomly, the SDK can provide a method
         // for overriding the starting attacking player later on...
-        const chosenDefendingPlayer = getRandomKey(this.players);
+        const chosenDefendingPlayer: string = getRandomKey(this.players);
         this.setDefendingPlayer(chosenDefendingPlayer);
 
         // Select the first remaining card and set the 'suit' of the game and then
         // shift the first element to the end of the stack.
-        const [trumpValue, trumpSuit] = parseCard(this.deck[0]);
+        const topCard: CardType = parseCard(this.deck[0]);
 
         this.trumpCard = {
-            value: trumpValue,
-            suit: trumpSuit,
+            value: topCard.value,
+            suit: topCard.suit,
             card: this.deck[0],
         }
 
-        this.deck.push(this.deck.shift());
+        // put top card to the bottom of the deck as is in the real game
+        this.deck.push(<string>this.deck.shift());
     }
 
 
@@ -165,14 +128,14 @@ export class Game {
      *
      * @return {Game} A game object from the game state.
      * */
-    static fromState(state) {
-        const game = new Game(Object.keys(state.players), new Map(Object.entries(state.history)), false);
+    static fromState(state: GameState) {
+        const game = new Game(Object.keys(state.players), state.history);
 
         game.trumpCard = state.trumpCard;
         game.tableTop = new Map(Object.entries(state.tableTop));
         game.players = new Map(Object.entries(state.players));
         game.deck = state.deck;
-        game.hasVictory = state.hasVictory;
+        game.victory = state.victory;
 
         return game;
     }
@@ -189,8 +152,8 @@ export class Game {
      *
      * @todo add this transaction as a history node.
      * */
-    finaliseRound() {
-        if (this.hasVictory) {
+    finaliseRound(): void {
+        if (this.victory) {
             throw new Error("Can't mutate game state after victory.");
         }
 
@@ -210,7 +173,7 @@ export class Game {
         if (forfeitRound) {
             // Take the cards from the table top and move them into the players
             // personal deck
-            const player = this.players.get(this.getDefendingPlayerName());
+            const player = <Player>this.players.get(this.getDefendingPlayerName());
             player.deck = [...player.deck, ...this.getTableTopDeck()];
 
             this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 2));
@@ -228,7 +191,7 @@ export class Game {
             // who began the round and the rest following in a clockwise manner.
             for (let offset = 0; offset < this.getActivePlayers().length; offset++) {
                 const nameByOffset = this.getPlayerNameByOffset(roundStarter, offset);
-                const playerByOffset = this.players.get(nameByOffset);
+                const playerByOffset = <Player>this.players.get(nameByOffset);
 
                 if (playerByOffset.deck.length < 6) {
                     playerByOffset.deck = [...playerByOffset.deck, ...this.deck.splice(0, 6 - playerByOffset.deck.length)];
@@ -256,7 +219,7 @@ export class Game {
             }
         });
 
-        this.hasVictory = hasVictory;
+        this.victory = hasVictory;
     }
 
     /**
@@ -281,13 +244,13 @@ export class Game {
      * @param {String} name - The id of the player that's taking the card.
      * @param {String} card - The card that's being added to the table top.
      * */
-    addCardToTableTop(name, card) {
+    addCardToTableTop(name: string, card: string): void {
         // check if the deck is already filled up.
         if (this.tableTop.size === 6) {
             throw new Error("Player deck already full.");
         }
 
-        if (this.hasVictory) {
+        if (this.victory) {
             throw new Error("Can't mutate game state after victory.");
         }
 
@@ -300,10 +263,10 @@ export class Game {
 
         // Also check that the current card is allowed to be added to the deck. To determine this,
         // the cardLabel of the card to be added must be present on the tableTop.
-        const [cardNumeric] = parseCard(card);
+        const coveringCard: CardType = parseCard(card);
         const tableTopCards = this.getTableTopDeck();
 
-        if (tableTopCards.length > 0 && !tableTopCards.map(item => parseCard(item)[0]).includes(cardNumeric)) {
+        if (tableTopCards.length > 0 && !tableTopCards.map(item => parseCard(item).value).includes(coveringCard.value)) {
             throw new Error("Card numerical value isn't present on the table top.");
         }
 
@@ -317,7 +280,7 @@ export class Game {
             }
 
             const nextPlayerName = this.getPlayerNameByOffset(name, 1);
-            const nextPlayer = this.players.get(nextPlayerName);
+            const nextPlayer = <Player>this.players.get(nextPlayerName);
 
             if (this.tableTop.size + 1 > nextPlayer.deck.length) {
                 throw new Error("Player doesn't have enough cards to cover attack.");
@@ -328,7 +291,7 @@ export class Game {
             // must have the same card label, and, no card must be covered on the
             // deck. Additionally, the role can't be passed if the player to the
             // left has less cards than the length of the deck + 1.
-            if (Array.from(this.tableTop.keys()).some((tableCard) => parseCard(tableCard)[0] !== cardNumeric)) {
+            if (Array.from(this.tableTop.keys()).some((tableCard) => parseCard(tableCard).value !== coveringCard.value)) {
                 throw new Error("Improper card for the transfer of defense state to next player.");
             }
 
@@ -346,7 +309,7 @@ export class Game {
 
             // now check here if there is only one player remaining in the game.
             if (this.getActivePlayers().length === 1) {
-                this.hasVictory = true;
+                this.victory = true;
             }
         }
     }
@@ -373,15 +336,16 @@ export class Game {
      *    The defending player can only do this if they haven't covered any other
      *    cards.
      *
-     * @param {String} card - The card that's going to be used to cover the table top card.
+     * @param {string} card - The card that's going to be used to cover the table top card.
      * @param {number} pos - The position of the card that's going to be covered.
      *
      * @todo add this transaction as a history node.
      * */
-    coverCardOnTableTop(card, pos) {
-        const defendingPlayer = this.players.get(this.getDefendingPlayerName());
+    coverCardOnTableTop(card: string, pos: number) {
+        const defendingName = <string> this.getDefendingPlayerName();
+        const defendingPlayer = <Player>this.players.get(defendingName);
 
-        if (this.hasVictory) {
+        if (this.victory) {
             throw new Error("Can't mutate game state after victory.");
         }
 
@@ -397,8 +361,8 @@ export class Game {
         }
 
 
-        const [numeric, suit] = parseCard(this.getCardOnTableTopAt(pos));
-        const [coveringNumeric, coveringSuit] = parseCard(card);
+        const placedCard: CardType = parseCard(<string>this.getCardOnTableTopAt(pos));
+        const coveringCard: CardType = parseCard(card);
 
         /* check whether we are dealing with the same suit of card, or if the defending
          * player is attempting to use the trumping suit. In general, there are three
@@ -413,17 +377,17 @@ export class Game {
          * 3. The defending player attempts to use a different, non-trumping suit card to
          *    cover the card which is an illegal state.
          */
-        if (coveringSuit === suit) {
+        if (coveringCard.suit === placedCard.suit) {
             // The trumping suit doesn't matter here since they are the same
-            if (numeric > coveringNumeric) {
+            if (placedCard.value > coveringCard.value) {
                 throw new Error("Covering card must have a higher value.");
             }
-        } else if (coveringSuit !== this.trumpCard.suit) {
+        } else if (coveringCard.suit !== this.trumpCard.suit) {
             throw new Error(`Covering card suit must be the same suit as the table card and have a higher numerical value.`);
         }
 
         // Transfer the player card from their deck to the the table top.
-        this.tableTop.set(this.getCardOnTableTopAt(pos), card);
+        this.tableTop.set(<string>this.getCardOnTableTopAt(pos), card);
         defendingPlayer.deck = defendingPlayer.deck.filter((playerCard) => playerCard !== card);
 
         // check if the whole table has been covered, then invoke finaliseRound()
@@ -445,8 +409,8 @@ export class Game {
      * @param {String} name - The name of the player that the defending status
      *        is being transferred to.
      * */
-    setDefendingPlayer(name) {
-        if (this.hasVictory) {
+    setDefendingPlayer(name: string) {
+        if (this.victory) {
             throw new Error("Can't mutate game state after victory.");
         }
 
@@ -457,7 +421,7 @@ export class Game {
         }
 
         // reset everyone's privileges for attacking/defending...
-        this.players.forEach((player, name) => {
+        this.players.forEach((player) => {
             player.canAttack = false;
             player.beganRound = false;
             player.isDefending = false;
@@ -465,7 +429,7 @@ export class Game {
         });
 
         // Update the parameters for the attacking and defending player...
-        let attackingPlayer = this.players.get(this.getPlayerNameByOffset(name, -1));
+        let attackingPlayer = <Player>this.players.get(this.getPlayerNameByOffset(name, -1));
 
         attackingPlayer.canAttack = true;
         attackingPlayer.beganRound = true;
@@ -483,8 +447,8 @@ export class Game {
      *
      * @todo add this transaction as a history node.
      * */
-    finalisePlayerTurn(name) {
-        if (this.hasVictory) {
+    finalisePlayerTurn(name: string) {
+        if (this.victory) {
             throw new Error("Can't mutate game state after victory.");
         }
 
@@ -541,8 +505,14 @@ export class Game {
      *
      * @return {String} the 'id' of the defending player.
      * */
-    getDefendingPlayerName() {
-        return Array.from(this.players.keys()).find(name => this.players.get(name).isDefending);
+    getDefendingPlayerName(): string {
+        const defendingPlayer = Array.from(this.players.keys()).find((name) => (<Player>this.players.get(name)).isDefending);
+
+        if (typeof defendingPlayer === "undefined") {
+            throw new Error("Invalid game state.")
+        }
+
+        return defendingPlayer;
     }
 
     /**
@@ -557,7 +527,7 @@ export class Game {
      *
      * @return {String} the name of player 'offset' positions after the given one.
      * */
-    getPlayerNameByOffset(name, offset) {
+    getPlayerNameByOffset(name: string, offset: number): string {
         const playerNames = this.getActivePlayers().map(([name]) => name);
         const playerIndex = playerNames.indexOf(name);
 
@@ -584,10 +554,16 @@ export class Game {
      * is used to determine how cards should be handed out(replenished) at the end
      * of a round if any player needs cards to fill their deck.
      *
-     * @return {String} the name of the player who initiated the round.
+     * @return {string} the name of the player who initiated the round.
      * */
-    getRoundStarter() {
-        return Array.from(this.players.keys()).find((name) => this.players.get(name).beganRound);
+    getRoundStarter(): string {
+        const roundStarter = Array.from(this.players.keys()).find((name) => (<Player>this.players.get(name)).beganRound);
+
+        if (typeof roundStarter === "undefined") {
+            throw new Error("Invalid game state");
+        }
+
+        return roundStarter;
     }
 
     /**
@@ -597,8 +573,10 @@ export class Game {
      *
      * @return {Array<String>} an array of cards.
      * */
-    getTableTopDeck() {
-        return Array.from(this.tableTop.entries()).flat().filter(item => item !== null);
+    getTableTopDeck(): string[] {
+        const tableCard: (string | null)[] = Array.from(this.tableTop.entries()).flat();
+
+        return tableCard.filter((item): item is string => item !== null);
     }
 
     /**
@@ -607,9 +585,10 @@ export class Game {
      *
      * @return {number} the number of covered cards.
      * */
-    getCoveredCount() {
-        return Array.from(this.tableTop.values()).filter((item) => item !== null).length;
+    getCoveredCount(): number {
+        return Array.from(this.tableTop.values()).filter((item): item is string => item !== null).length;
     }
+
     /**
      * Method to get a bottom card of the table top by a position on the table.
      *
@@ -618,7 +597,7 @@ export class Game {
      * @return {?String} The card on the table top at the given position, if nothing
      * is at the given position the method will return 'undefined'.
      * */
-    getCardOnTableTopAt(pos) {
+    getCardOnTableTopAt(pos: number): string | null {
         if (pos < 0 || pos > 5) {
             throw new Error(`Can't get table top card at position '${pos}'`);
         }
@@ -638,8 +617,8 @@ export class Game {
      *
      * @todo add this transaction as a history node.
      * */
-    transferCardOntoTable(player, card) {
-        if (this.hasVictory) {
+    transferCardOntoTable(player: Player, card: string) {
+        if (this.victory) {
             throw new Error("Can't mutate game state after victory.");
         }
 
@@ -672,8 +651,8 @@ export class Game {
      *
      * @todo add this transaction as a history node.
      * */
-    transferTableTop(to) {
-        if (this.hasVictory) {
+    transferTableTop(to: string) {
+        if (this.victory) {
             throw new Error("Can't mutate game state after victory.");
         }
 
@@ -681,7 +660,7 @@ export class Game {
             throw new Error("Player doesn't exist.");
         }
 
-        this.players.get(to).deck.push(...this.getTableTopDeck());
+        (<Player>this.players.get(to)).deck.push(...this.getTableTopDeck());
         this.voidTableTop();
     }
 
@@ -694,7 +673,7 @@ export class Game {
      *
      * @todo add this transaction as a history node.
      * */
-    voidTableTop() {
+    voidTableTop(): void {
         this.tableTop.clear();
     }
 
@@ -709,7 +688,7 @@ export class Game {
      *
      * @param {String} playerName - The name of the player to generate state for
      * */
-    getStateForPlayer(playerName) {
+    getStateForPlayer(playerName: string) {
         const player = this.players.get(playerName);
 
         if (typeof player === 'undefined') {
@@ -733,17 +712,28 @@ export class Game {
             players: Array.from(this.players.keys())
                 .filter(name => name !== playerName)
                 .map(name => {
-                    const player = this.players.get(name);
+                    const player = <Player>this.players.get(name);
 
                     return {
-                            name,
-                            out: player.out !== null,
-                            size: player.deck.length,
-                            isDefending: player.isDefending,
-                            turned: player.turned,
+                        name,
+                        out: player.out !== null,
+                        size: player.deck.length,
+                        isDefending: player.isDefending,
+                        turned: player.turned,
                     }
                 }),
         }
+    }
+
+    getPlayer(name: string): Player {
+
+        const player = this.players.get(name);
+
+        if (typeof player === 'undefined') {
+            throw new Error("Invalid game state.")
+        }
+
+        return player;
     }
 
     /**
@@ -758,14 +748,14 @@ export class Game {
      *  history: Map<number, Object>
      * }}
      * */
-    serialize() {
-        return {
-            players: this.players,
-            history: this.history,
-            hasVictory: this.hasVictory,
-            trumpCard: this.trumpCard,
-            deck: this.deck,
-            tableTop: this.tableTop,
-        }
+    serialize(): GameState {
+        return new GameState(
+            this.players,
+            this.history,
+            this.tableTop,
+            this.deck,
+            this.trumpCard,
+            this.victory,
+        );
     }
 }

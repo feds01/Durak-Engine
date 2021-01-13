@@ -6,7 +6,7 @@
  * @param {Array} array - An array of anything which will be shuffled.
  * @return The shuffled array.
  * */
-export function shuffleArray(array) {
+export function shuffleArray(array: Array<any>): Array<any> {
     let currentIndex = array.length, temporaryValue, randomIndex;
 
     while (0 !== currentIndex) {
@@ -23,7 +23,7 @@ export function shuffleArray(array) {
 
 
 // returns random key from Set or Map
-export function getRandomKey(collection) {
+export function getRandomKey(collection: Map<string, Object>): string {
     let keys = Array.from(collection.keys());
     return keys[Math.floor(Math.random() * keys.length)];
 }
