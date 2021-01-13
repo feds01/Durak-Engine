@@ -1,23 +1,8 @@
-import {getRandomKey, shuffleArray} from "../utils";
-import {CardNumerics, CardSuits} from "./consts";
 import {History} from "./history";
 import {Player} from "./player";
 import {GameState} from "./state";
-import {CardType, parseCard} from "./card";
-
-
-/**
- * Generates a whole card deck for use in the format of a list. Each
- * element follows the format of '<label> of <suit>'.
- * */
-export function generateCardDeck(): string[] {
-    return CardNumerics.map((label) => {
-        return Object.keys(CardSuits).map((suit) => {
-            return `${label}${suit}`;
-        })
-    }).flat();
-}
-
+import {getRandomKey, shuffleArray} from "../utils";
+import {CardType, generateCardDeck, parseCard} from "./card";
 
 /**
  * @version 1.0.0
@@ -89,7 +74,7 @@ export class Game {
         // distribute the cards between the players as if in a physical way
         for (let index = 0; index < Game.DeckSize; index++) {
             this.players.forEach((player) => {
-                player.addCard(<string>this.deck.shift());
+                player.addCard(this.deck.shift()!);
             });
         }
 
@@ -109,7 +94,7 @@ export class Game {
         }
 
         // put top card to the bottom of the deck as is in the real game
-        this.deck.push(<string>this.deck.shift());
+        this.deck.push(this.deck.shift()!);
     }
 
 
@@ -245,18 +230,13 @@ export class Game {
      * @param {String} card - The card that's being added to the table top.
      * */
     addCardToTableTop(name: string, card: string): void {
-        // check if the deck is already filled up.
-        if (this.tableTop.size === 6) {
-            throw new Error("Player deck already full.");
-        }
+        if (this.victory) throw new Error("Can't mutate game state after victory.");
 
-        if (this.victory) {
-            throw new Error("Can't mutate game state after victory.");
-        }
+        // check if the deck is already filled up.
+        if (this.tableTop.size === 6) throw new Error("Player deck already full.");
 
         // Check that the player exists
-        const player = this.players.get(name);
-        if (typeof player === 'undefined') throw new Error("Player doesn't exist.");
+        const player = this.getPlayer(name);
 
         // Now check the presence of the given card, in the players deck.
         if (!player.deck.includes(card)) throw new Error("Player doesn't hold current card");
@@ -279,8 +259,7 @@ export class Game {
                 throw new Error("Player can't transfer defense since they have covered a card.")
             }
 
-            const nextPlayerName = this.getPlayerNameByOffset(name, 1);
-            const nextPlayer = <Player>this.players.get(nextPlayerName);
+            const nextPlayer = this.getPlayer(this.getPlayerNameByOffset(name, 1));
 
             if (this.tableTop.size + 1 > nextPlayer.deck.length) {
                 throw new Error("Player doesn't have enough cards to cover attack.");
@@ -342,8 +321,7 @@ export class Game {
      * @todo add this transaction as a history node.
      * */
     coverCardOnTableTop(card: string, pos: number) {
-        const defendingName = <string> this.getDefendingPlayerName();
-        const defendingPlayer = <Player>this.players.get(defendingName);
+        const defendingPlayer = this.getPlayer(this.getDefendingPlayerName());
 
         if (this.victory) {
             throw new Error("Can't mutate game state after victory.");
@@ -361,7 +339,7 @@ export class Game {
         }
 
 
-        const placedCard: CardType = parseCard(<string>this.getCardOnTableTopAt(pos));
+        const placedCard: CardType = parseCard(this.getCardOnTableTopAt(pos)!);
         const coveringCard: CardType = parseCard(card);
 
         /* check whether we are dealing with the same suit of card, or if the defending
@@ -387,7 +365,7 @@ export class Game {
         }
 
         // Transfer the player card from their deck to the the table top.
-        this.tableTop.set(<string>this.getCardOnTableTopAt(pos), card);
+        this.tableTop.set(this.getCardOnTableTopAt(pos)!, card);
         defendingPlayer.deck = defendingPlayer.deck.filter((playerCard) => playerCard !== card);
 
         // check if the whole table has been covered, then invoke finaliseRound()
@@ -414,11 +392,7 @@ export class Game {
             throw new Error("Can't mutate game state after victory.");
         }
 
-        const defendingPlayer = this.players.get(name);
-
-        if (typeof defendingPlayer === 'undefined') {
-            throw new Error("Player doesn't exist.");
-        }
+        const defendingPlayer = this.getPlayer(name);
 
         // reset everyone's privileges for attacking/defending...
         this.players.forEach((player) => {
@@ -429,7 +403,7 @@ export class Game {
         });
 
         // Update the parameters for the attacking and defending player...
-        let attackingPlayer = <Player>this.players.get(this.getPlayerNameByOffset(name, -1));
+        let attackingPlayer = this.getPlayer(this.getPlayerNameByOffset(name, -1));
 
         attackingPlayer.canAttack = true;
         attackingPlayer.beganRound = true;
@@ -452,17 +426,11 @@ export class Game {
             throw new Error("Can't mutate game state after victory.");
         }
 
-        const player = this.players.get(name);
-
-        // player doesn't exist.
-        if (typeof player === 'undefined') {
-            throw new Error("Player doesn't exist.")
-        }
-
         if (this.tableTop.size === 0) {
             throw new Error("Cannot finalise turn when no cards have been placed.");
         }
 
+        const player = this.getPlayer(name);
         player.turned = true;
 
         // If this is the attacking player, set everyone's 'canAttack' (except defending)
@@ -506,7 +474,7 @@ export class Game {
      * @return {String} the 'id' of the defending player.
      * */
     getDefendingPlayerName(): string {
-        const defendingPlayer = Array.from(this.players.keys()).find((name) => (<Player>this.players.get(name)).isDefending);
+        const defendingPlayer = Array.from(this.players.keys()).find((name) => this.players.get(name)!.isDefending);
 
         if (typeof defendingPlayer === "undefined") {
             throw new Error("Invalid game state.")
@@ -544,8 +512,8 @@ export class Game {
      *
      * @returns {Array<Array<string, object>>} An array of player name with the player's state.
      * */
-    getActivePlayers() {
-        return Array.from(this.players.entries()).filter((player) => player[1].out === null);
+    getActivePlayers(): [string, Player][] {
+        return Array.from(this.players.entries()).filter(([name, player]) => player.out === null);
     }
 
     /**
@@ -557,7 +525,7 @@ export class Game {
      * @return {string} the name of the player who initiated the round.
      * */
     getRoundStarter(): string {
-        const roundStarter = Array.from(this.players.keys()).find((name) => (<Player>this.players.get(name)).beganRound);
+        const roundStarter = Array.from(this.players.keys()).find((name) => this.players.get(name)!.beganRound);
 
         if (typeof roundStarter === "undefined") {
             throw new Error("Invalid game state");
@@ -660,7 +628,7 @@ export class Game {
             throw new Error("Player doesn't exist.");
         }
 
-        (<Player>this.players.get(to)).deck.push(...this.getTableTopDeck());
+        this.players.get(to)!.deck.push(...this.getTableTopDeck());
         this.voidTableTop();
     }
 
@@ -689,11 +657,7 @@ export class Game {
      * @param {String} playerName - The name of the player to generate state for
      * */
     getStateForPlayer(playerName: string) {
-        const player = this.players.get(playerName);
-
-        if (typeof player === 'undefined') {
-            throw new Error("Player doesn't exist.");
-        }
+        const player = this.getPlayer(playerName);
 
         return {
             deck: player.deck,
@@ -712,7 +676,7 @@ export class Game {
             players: Array.from(this.players.keys())
                 .filter(name => name !== playerName)
                 .map(name => {
-                    const player = <Player>this.players.get(name);
+                    const player = this.players.get(name)!;
 
                     return {
                         name,

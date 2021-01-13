@@ -1,4 +1,4 @@
-export enum SERVER_EVENTS {
+export enum ServerEvents {
     JOIN_GAME,
     UPDATE_PASSPHRASE,
     START_GAME,
@@ -6,7 +6,7 @@ export enum SERVER_EVENTS {
     MOVE,
 }
 
-export enum CLIENT_EVENTS {
+export enum ClientEvents {
     JOINED_GAME,
     NEW_PLAYER,
     COUNTDOWN,

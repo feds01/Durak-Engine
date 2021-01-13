@@ -38,3 +38,17 @@ export function parseCard(card: string): CardType {
 
     return {value: CardNumerics.indexOf(rawNumeric) + 2, suit, card};
 }
+
+
+
+/**
+ * Generates a whole card deck for use in the format of a list. Each
+ * element follows the format of '(label)(suit)'.
+ * */
+export function generateCardDeck(): string[] {
+    return CardNumerics.map((label) => {
+        return Object.keys(CardSuits).map((suit) => {
+            return `${label}${suit}`;
+        })
+    }).flat();
+}

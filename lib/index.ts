@@ -1,9 +1,11 @@
-import * as game from './engine/game';
-import * as error from './error';
-import * as utils from "./utils";
-import * as events from "./events";
+export * as error from './error';
+export {shuffleArray, getRandomKey} from "./utils";
+export {ServerEvents, ClientEvents} from "./events";
 
-export {game, utils, events, error};
+
+export {Game} from "./engine/game";
+export {MoveTypes, CardType, parseCard} from "./engine/card";
+
 
 export enum GameStatus {
     WAITING,
