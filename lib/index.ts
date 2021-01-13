@@ -4,7 +4,17 @@ export {ServerEvents, ClientEvents} from "./events";
 
 
 export {Game} from "./engine/game";
-export {MoveTypes, CardType, parseCard} from "./engine/card";
+export { CardType, parseCard} from "./engine/card";
+export {CardNumerics, CardSuits} from './engine/consts';
+
+/**
+ * Possible move types that any player can make.
+ * */
+export enum MoveTypes {
+    PLACE,
+    COVER,
+    FORFEIT,
+}
 
 
 export enum GameStatus {

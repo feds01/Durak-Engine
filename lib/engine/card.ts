@@ -7,15 +7,6 @@ export interface CardType {
 }
 
 /**
- * Possible move types that any player can make.
- * */
-export enum MoveTypes {
-    PLACE,
-    COVER,
-    FORFEIT,
-}
-
-/**
  * Simple function to split the card string into it's 'numerical'
  * value and it's 'suit' value.
  *
