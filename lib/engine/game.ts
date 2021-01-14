@@ -158,7 +158,7 @@ export class Game {
         if (forfeitRound) {
             // Take the cards from the table top and move them into the players
             // personal deck
-            const player = <Player>this.players.get(this.getDefendingPlayerName());
+            const player = this.getPlayer(this.getDefendingPlayerName());
             player.deck = [...player.deck, ...this.getTableTopDeck()];
 
             this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 2));
@@ -175,8 +175,7 @@ export class Game {
             // we need to transpose the player list to begin with the player
             // who began the round and the rest following in a clockwise manner.
             for (let offset = 0; offset < this.getActivePlayers().length; offset++) {
-                const nameByOffset = this.getPlayerNameByOffset(roundStarter, offset);
-                const playerByOffset = <Player>this.players.get(nameByOffset);
+                const playerByOffset = this.getPlayer(this.getPlayerNameByOffset(roundStarter, offset));
 
                 if (playerByOffset.deck.length < 6) {
                     playerByOffset.deck = [...playerByOffset.deck, ...this.deck.splice(0, 6 - playerByOffset.deck.length)];
@@ -407,7 +406,6 @@ export class Game {
 
         attackingPlayer.canAttack = true;
         attackingPlayer.beganRound = true;
-
         defendingPlayer.isDefending = true;
     }
 
@@ -659,6 +657,12 @@ export class Game {
     getStateForPlayer(playerName: string): PlayerGameState {
         const player = this.getPlayer(playerName);
 
+        // transpose the array to match the position of the player on the table
+        const players = Array.from(this.players.keys());
+        const idx = players.indexOf(playerName);
+
+        const playerOrder = [...players.slice(idx + 1, players.length), ...players.slice(0, idx)];
+
         return {
             ...player,
             out: player.out !== null,
@@ -672,10 +676,7 @@ export class Game {
 
             // information about other players, including how many cards they
             // are holding, if they have turned, and if they are defending...
-            // TODO: transpose the array to match the position of the player on the table
-            players: Array.from(this.players.keys())
-                .filter(name => name !== playerName)
-                .map(name => {
+            players: playerOrder.map(name => {
                     const player = this.players.get(name)!;
 
                     return {
