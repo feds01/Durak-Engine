@@ -660,10 +660,7 @@ export class Game {
         const player = this.getPlayer(playerName);
 
         return {
-            deck: player.deck,
-            isDefending: player.isDefending,
-            canAttack: player.canAttack,
-            turned: player.turned,
+            ...player,
             out: player.out !== null,
 
             // general info about the game state
@@ -675,6 +672,7 @@ export class Game {
 
             // information about other players, including how many cards they
             // are holding, if they have turned, and if they are defending...
+            // TODO: transpose the array to match the position of the player on the table
             players: Array.from(this.players.keys())
                 .filter(name => name !== playerName)
                 .map(name => {
