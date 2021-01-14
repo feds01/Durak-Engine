@@ -285,6 +285,10 @@ export class Game {
         if (player.deck.length === 0 && this.deck.length === 0) {
             player.out = Date.now();
 
+            // call finaliseTurn since they might be the attacker at the start of the round, by doing
+            // this, all other players can now place cards on the table top.
+            this.finalisePlayerTurn(name);
+
             // now check here if there is only one player remaining in the game.
             if (this.getActivePlayers().length === 1) {
                 this.victory = true;
@@ -501,7 +505,10 @@ export class Game {
             throw new Error("Player doesn't exist within the lobby.");
         }
 
-        return playerNames[Math.abs(playerIndex + offset) % this.players.size];
+        let index = offset + playerIndex;
+        if (index < 0) index += playerNames.length;
+
+        return playerNames[index % playerNames.length];
     }
 
     /**
