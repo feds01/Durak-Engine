@@ -1,6 +1,6 @@
 import {History} from "./history";
 import {Player} from "./player";
-import {GameState} from "./state";
+import {GameState, PlayerGameState} from "./state";
 import {getRandomKey, shuffleArray} from "../utils";
 import {CardType, generateCardDeck, parseCard} from "./card";
 
@@ -387,7 +387,7 @@ export class Game {
      * @param {String} name - The name of the player that the defending status
      *        is being transferred to.
      * */
-    setDefendingPlayer(name: string) {
+    setDefendingPlayer(name: string): void {
         if (this.victory) {
             throw new Error("Can't mutate game state after victory.");
         }
@@ -421,7 +421,7 @@ export class Game {
      *
      * @todo add this transaction as a history node.
      * */
-    finalisePlayerTurn(name: string) {
+    finalisePlayerTurn(name: string): void {
         if (this.victory) {
             throw new Error("Can't mutate game state after victory.");
         }
@@ -656,7 +656,7 @@ export class Game {
      *
      * @param {String} playerName - The name of the player to generate state for
      * */
-    getStateForPlayer(playerName: string) {
+    getStateForPlayer(playerName: string): PlayerGameState {
         const player = this.getPlayer(playerName);
 
         return {
@@ -669,6 +669,8 @@ export class Game {
             // general info about the game state
             trumpCard: this.trumpCard,
             deckSize: this.deck.length,
+
+            // @ts-ignore
             tableTop: Object.fromEntries(this.tableTop),
 
             // information about other players, including how many cards they
@@ -680,10 +682,13 @@ export class Game {
 
                     return {
                         name,
+                        ...player,
+
+                        // overwrite these values to suit the required format and to
+                        // not reveal sensitive information about game state to other
+                        // players
                         out: player.out !== null,
-                        size: player.deck.length,
-                        isDefending: player.isDefending,
-                        turned: player.turned,
+                        deck: player.deck.length,
                     }
                 }),
         }

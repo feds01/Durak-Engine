@@ -3,26 +3,34 @@ import {Player} from "./player";
 import {CardType} from "./card";
 
 export class GameState {
-    trumpCard: CardType;
-    tableTop: Map<string, string | null>;
-    deck: string[];
-    victory: boolean;
-    history: History | null;
-    players: Map<string, Player>;
-
     constructor(
-        players: Map<string, Player>,
-        history: History | null,
-        tableTop: Map<string, string | null>,
-        deck: string[],
-        trumpCard: CardType,
-        victory: boolean
+        public players: Map<string, Player>,
+        public history: History | null,
+        public tableTop: Map<string, string | null>,
+        public deck: string[],
+        public trumpCard: CardType,
+        public victory: boolean
+    ) {}
+}
+
+export type PlayerState = {
+    name: string,
+    deck: number,
+    out: boolean,
+    turned: boolean,
+    beganRound: boolean,
+    isDefending: boolean,
+    canAttack: boolean,
+}
+
+export class PlayerGameState {
+    constructor(
+        public players: PlayerState[],
+        public history: History | null,
+        public tableTop: {[key: string]: string},
+        public deckSize: number,
+        public trumpCard: CardType,
+        public victory: boolean
     ) {
-        this.players = players;
-        this.history = history;
-        this.tableTop = tableTop;
-        this.deck = deck;
-        this.trumpCard = trumpCard;
-        this.victory = victory;
     }
 }
