@@ -473,8 +473,18 @@ export class Game {
         // can't put down anymore cards.
         const uncoveredCards = this.tableTop.size - this.getCoveredCount();
 
-        if (name === defendingPlayerName && (this.tableTop.size === Game.DeckSize || uncoveredCards === player.deck.length)) {
-            this.finaliseRound();
+        if (name === defendingPlayerName) {
+            if (
+                this.tableTop.size === Game.DeckSize ||
+                uncoveredCards === player.deck.length ||
+
+                // Special case where 4 cards of the same numeric have been placed and
+                // all of them have not been covered, hence preventing attackers from
+                // placing anymore cards. Therefore it is safe to finalise the round.
+                (this.tableTop.size === 4 && uncoveredCards === 4 && new Set(...this.getTableTopDeck()).size === 1))
+            {
+                this.finaliseRound();
+            }
         }
 
         if (canFinalise && this.getCoveredCount() === this.tableTop.size) this.finaliseRound();
