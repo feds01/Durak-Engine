@@ -175,13 +175,12 @@ export class Game {
             // we need to transpose the player list to begin with the player
             // who began the round and the rest following in a clockwise manner.
             for (let offset = 0; offset < this.getActivePlayers().length; offset++) {
-                const playerByOffset = this.getPlayer(this.getPlayerNameByOffset(roundStarter, offset));
+                const playerName = this.getPlayerNameByOffset(roundStarter, offset);
+                const playerByOffset = this.getPlayer(playerName);
 
                 if (playerByOffset.deck.length < 6) {
                     playerByOffset.deck = [...playerByOffset.deck, ...this.deck.splice(0, 6 - playerByOffset.deck.length)];
                 }
-
-                playerByOffset.turned = false;
 
                 // no point of distributing the cards if there are no cards left.
                 if (this.deck.length === 0) break;
@@ -196,6 +195,11 @@ export class Game {
             // check if we need to declare someone as 'out' of the game.
             if (player.deck.length === 0) {
                 player.out = Date.now();
+
+                // We need to finalise the round, just in case it hasn't been done previously
+                // This needs to happen if a defender or any other player exits the game whilst
+                // placing or covering cards.
+                this.finalisePlayerTurn(name);
             }
 
             if (name !== this.getDefendingPlayerName() && player.out === null) {
@@ -440,7 +444,8 @@ export class Game {
         const defendingPlayerName = this.getDefendingPlayerName();
         const attackingPlayer = this.getPlayerNameByOffset(defendingPlayerName, -1);
 
-        if (attackingPlayer === name) {
+        // If the defender forfeits, everybody can now attack
+        if (attackingPlayer === name || defendingPlayerName === name) {
             this.getActivePlayers().forEach(([name, player]) => {
                 if (name !== defendingPlayerName) {
                     player.canAttack = true;
@@ -463,6 +468,14 @@ export class Game {
                 canFinalise = false;
             }
         });
+
+        // https://github.com/feds01/durak-cards#26 - The round should be finalised if attackers
+        // can't put down anymore cards.
+        const uncoveredCards = this.tableTop.size - this.getCoveredCount();
+
+        if (name === defendingPlayerName && (this.tableTop.size === Game.DeckSize || uncoveredCards === player.deck.length)) {
+            this.finaliseRound();
+        }
 
         if (canFinalise && this.getCoveredCount() === this.tableTop.size) this.finaliseRound();
     }
