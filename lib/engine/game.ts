@@ -167,8 +167,6 @@ export class Game {
             this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 1));
         }
 
-        this.voidTableTop();
-
         // Check if the 'spare' deck size is greater than zero and therefore we can
         // replenish the players' card decks.
         if (this.deck.length > 0) {
@@ -206,6 +204,9 @@ export class Game {
                 hasVictory = false;
             }
         });
+
+        // finally after finalising player turns, void the table top
+        this.voidTableTop();
 
         this.victory = hasVictory;
     }
@@ -295,6 +296,14 @@ export class Game {
             // to preserve the order for every other player to receive the ability to attack the
             // defender.
             player.out = Date.now();
+
+            // Uhh we have to now check if this was the attacking player, and transfer the
+            // attack to the next 'alive' player.
+            if (player.canAttack) {
+                const playerOrder = this.getPlayerOrderFrom(name).filter((p) => !this.getPlayer(p).out);
+
+                this.setDefendingPlayer(playerOrder[2 % playerOrder.length]);
+            }
 
             // now check here if there is only one player remaining in the game.
             if (this.getActivePlayers().length === 1) {
@@ -531,7 +540,7 @@ export class Game {
         const playerIndex = playerNames.indexOf(name);
 
         if (playerIndex < 0) {
-            throw new Error("Player doesn't exist within the lobby.");
+            throw new Error("Player is out of the game or doesn't exist within the lobby.");
         }
 
         let index = offset + playerIndex;
@@ -679,6 +688,13 @@ export class Game {
         this.tableTop.clear();
     }
 
+    getPlayerOrderFrom(name: string): string[] {
+        const players = Array.from(this.players.keys());
+        const idx = players.indexOf(name);
+
+        return [...players.slice(idx + 1, players.length), ...players.slice(0, idx)];
+    }
+
     /**
      * Method used to generate a game state from the perspective of a player. Using the player
      * name, a game state is constructed; notifying the given player with how many cards are in the
@@ -694,10 +710,7 @@ export class Game {
         const player = this.getPlayer(playerName);
 
         // transpose the array to match the position of the player on the table
-        const players = Array.from(this.players.keys());
-        const idx = players.indexOf(playerName);
-
-        const playerOrder = [...players.slice(idx + 1, players.length), ...players.slice(0, idx)];
+        const playerOrder = this.getPlayerOrderFrom(playerName);
 
         return {
             ...player,
