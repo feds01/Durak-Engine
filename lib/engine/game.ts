@@ -487,6 +487,7 @@ export class Game {
         // https://github.com/feds01/durak-cards#26 - The round should be finalised if attackers
         // can't put down anymore cards.
         const uncoveredCards = this.tableTop.size - this.getCoveredCount();
+        const tableTopCards = this.getTableTopDeck().map(card => parseCard(card).value);
 
         if (name === defendingPlayerName) {
             if (
@@ -496,8 +497,7 @@ export class Game {
                 // Special case where 4 cards of the same numeric have been placed and
                 // all of them have not been covered, hence preventing attackers from
                 // placing anymore cards. Therefore it is safe to finalise the round.
-                (this.tableTop.size === 4 && uncoveredCards === 4 && new Set(...this.getTableTopDeck()).size === 1))
-            {
+                (this.tableTop.size === 4 && uncoveredCards === 4 && new Set(tableTopCards).size === 1)) {
                 this.finaliseRound();
             }
         }
@@ -726,19 +726,19 @@ export class Game {
             // information about other players, including how many cards they
             // are holding, if they have turned, and if they are defending...
             players: playerOrder.map(name => {
-                    const player = this.players.get(name)!;
+                const player = this.players.get(name)!;
 
-                    return {
-                        name,
-                        ...player,
+                return {
+                    name,
+                    ...player,
 
-                        // overwrite these values to suit the required format and to
-                        // not reveal sensitive information about game state to other
-                        // players
-                        out: player.out !== null,
-                        deck: player.deck.length,
-                    }
-                }),
+                    // overwrite these values to suit the required format and to
+                    // not reveal sensitive information about game state to other
+                    // players
+                    out: player.out !== null,
+                    deck: player.deck.length,
+                }
+            }),
         }
     }
 
