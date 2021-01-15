@@ -287,11 +287,14 @@ export class Game {
         // check if the player has no cards in the deck and there no cards in the game deck, then the
         // current player has 'won' the game and apply a timestamp to when they exited the round.
         if (player.deck.length === 0 && this.deck.length === 0) {
-            player.out = Date.now();
-
             // call finaliseTurn since they might be the attacker at the start of the round, by doing
             // this, all other players can now place cards on the table top.
             this.finalisePlayerTurn(name);
+
+            // Declare after turn finalisation since they might be the attacking player and we need
+            // to preserve the order for every other player to receive the ability to attack the
+            // defender.
+            player.out = Date.now();
 
             // now check here if there is only one player remaining in the game.
             if (this.getActivePlayers().length === 1) {
@@ -349,7 +352,8 @@ export class Game {
         const placedCard: CardType = parseCard(this.getCardOnTableTopAt(pos)!);
         const coveringCard: CardType = parseCard(card);
 
-        /* check whether we are dealing with the same suit of card, or if the defending
+        /*
+         * check whether we are dealing with the same suit of card, or if the defending
          * player is attempting to use the trumping suit. In general, there are three
          * possible states the game can end up in. These are:
          *
@@ -413,6 +417,8 @@ export class Game {
         let attackingPlayer = this.getPlayer(this.getPlayerNameByOffset(name, -1));
 
         attackingPlayer.canAttack = true;
+
+        // TODO: should we be transferring 'beganRound' privileges when a defence is transferred?
         attackingPlayer.beganRound = true;
         defendingPlayer.isDefending = true;
     }
