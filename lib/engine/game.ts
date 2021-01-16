@@ -406,7 +406,7 @@ export class Game {
         // check if the whole table has been covered, then invoke finaliseRound()
         if (this.getCoveredCount() === Game.DeckSize || defendingPlayer.deck.length === 0) {
             // declare that the defending player is out
-            defendingPlayer.out = Date.now();
+            if (this.deck.length === 0) defendingPlayer.out = Date.now();
 
             this.finaliseRound();
         } else {
