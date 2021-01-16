@@ -3,6 +3,8 @@ import {Player} from "./player";
 import {GameState, PlayerGameState} from "./state";
 import {getRandomKey, shuffleArray} from "../utils";
 import {CardType, generateCardDeck, parseCard} from "./card";
+import InvalidGameState from "./errors/InvalidGameState";
+import GameInitError from "./errors/GameInitError";
 
 /**
  * @version 1.0.0
@@ -53,14 +55,14 @@ export class Game {
 
         // Check if the players argument follows the specified constraints.
         if (!Number.isInteger(players.length) && players.length < 1) {
-            throw new Error("Number of players must be a positive integer.");
+            throw new GameInitError("Number of players must be a positive integer.");
         } else if (players.length > 8) {
-            throw new Error("Number of players cannot be greater than eight.");
+            throw new GameInitError("Number of players cannot be greater than eight.");
         }
 
         // check that all of the player names are unique
         if ((new Set(players)).size !== players.length) {
-            throw new Error("Player names must be unique.")
+            throw new GameInitError("Player names must be unique.")
         }
 
         // generate card deck and shuffle it for the game
@@ -139,12 +141,12 @@ export class Game {
      * */
     finaliseRound(): void {
         if (this.victory) {
-            throw new Error("Can't mutate game state after victory.");
+            throw new InvalidGameState("Can't mutate game state after victory.");
         }
 
         // the round cannot be finalised if no cards were ever put down on to the table
         if (this.tableTop.size === 0) {
-            throw new Error("Cannot finalise round before any cards have been played.");
+            throw new InvalidGameState("Cannot finalise round before any cards have been played.");
         }
 
         // get the round starter before it is overwritten by the 'defense' transfer
@@ -234,7 +236,7 @@ export class Game {
      * @param {String} card - The card that's being added to the table top.
      * */
     addCardToTableTop(name: string, card: string): void {
-        if (this.victory) throw new Error("Can't mutate game state after victory.");
+        if (this.victory) throw new InvalidGameState("Can't mutate game state after victory.");
 
         // check if the deck is already filled up.
         if (this.tableTop.size === 6) throw new Error("Player deck already full.");
@@ -243,7 +245,7 @@ export class Game {
         const player = this.getPlayer(name);
 
         // Now check the presence of the given card, in the players deck.
-        if (!player.deck.includes(card)) throw new Error("Player doesn't hold current card");
+        if (!player.deck.includes(card)) throw new InvalidGameState("Player doesn't hold current card");
 
         // Also check that the current card is allowed to be added to the deck. To determine this,
         // the cardLabel of the card to be added must be present on the tableTop.
@@ -251,7 +253,7 @@ export class Game {
         const tableTopCards = this.getTableTopDeck();
 
         if (tableTopCards.length > 0 && !tableTopCards.map(item => parseCard(item).value).includes(coveringCard.value)) {
-            throw new Error("Card numerical value isn't present on the table top.");
+            throw new InvalidGameState("Card numerical value isn't present on the table top.");
         }
 
         // Now let's determine if the player is trying to transfer the defensive position
@@ -260,13 +262,13 @@ export class Game {
         if (player.isDefending) {
             // the player can't transfer defense if any of the cards are covered...
             if (this.getCoveredCount() !== 0) {
-                throw new Error("Player can't transfer defense since they have covered a card.")
+                throw new InvalidGameState("Player can't transfer defense since they have covered a card.")
             }
 
             const nextPlayer = this.getPlayer(this.getPlayerNameByOffset(name, 1));
 
             if (this.tableTop.size + 1 > nextPlayer.deck.length) {
-                throw new Error("Player doesn't have enough cards to cover attack.");
+                throw new InvalidGameState("Player doesn't have enough cards to cover attack.");
             }
 
             // we need to check if the player can transfer the defensive role to
@@ -275,7 +277,7 @@ export class Game {
             // deck. Additionally, the role can't be passed if the player to the
             // left has less cards than the length of the deck + 1.
             if (Array.from(this.tableTop.keys()).some((tableCard) => parseCard(tableCard).value !== coveringCard.value)) {
-                throw new Error("Improper card for the transfer of defense state to next player.");
+                throw new InvalidGameState("Improper card for the transfer of defense state to next player.");
             }
 
             // transfer defense state to the next player
@@ -343,18 +345,18 @@ export class Game {
         const defendingPlayer = this.getPlayer(this.getDefendingPlayerName());
 
         if (this.victory) {
-            throw new Error("Can't mutate game state after victory.");
+            throw new InvalidGameState("Can't mutate game state after victory.");
         }
 
         // check that the 'card' is present on the table top...
         if (!defendingPlayer.deck.includes(card)) {
-            throw new Error("Defending card is not present in the defending players deck.");
+            throw new InvalidGameState("Defending card is not present in the defending players deck.");
         }
 
 
         // check that the 'coveringCard' is present in the defending players deck.
         if (!this.getCardOnTableTopAt(pos)) {
-            throw new Error("Defending card is not present in the defending players deck.");
+            throw new InvalidGameState("Defending card is not present in the defending players deck.");
         }
 
 
@@ -378,10 +380,10 @@ export class Game {
         if (coveringCard.suit === placedCard.suit) {
             // The trumping suit doesn't matter here since they are the same
             if (placedCard.value > coveringCard.value) {
-                throw new Error("Covering card must have a higher value.");
+                throw new InvalidGameState("Covering card must have a higher value.");
             }
         } else if (coveringCard.suit !== this.trumpCard.suit) {
-            throw new Error(`Covering card suit must be the same suit as the table card and have a higher numerical value.`);
+            throw new InvalidGameState(`Covering card suit must be the same suit as the table card and have a higher numerical value.`);
         }
 
         // Transfer the player card from their deck to the the table top.
@@ -409,7 +411,7 @@ export class Game {
      * */
     setDefendingPlayer(name: string): void {
         if (this.victory) {
-            throw new Error("Can't mutate game state after victory.");
+            throw new InvalidGameState("Can't mutate game state after victory.");
         }
 
         const defendingPlayer = this.getPlayer(name);
@@ -444,11 +446,11 @@ export class Game {
      * */
     finalisePlayerTurn(name: string): void {
         if (this.victory) {
-            throw new Error("Can't mutate game state after victory.");
+            throw new InvalidGameState("Can't mutate game state after victory.");
         }
 
         if (this.tableTop.size === 0) {
-            throw new Error("Cannot finalise turn when no cards have been placed.");
+            throw new InvalidGameState("Cannot finalise turn when no cards have been placed.");
         }
 
         const player = this.getPlayer(name);
@@ -517,7 +519,7 @@ export class Game {
         const defendingPlayer = Array.from(this.players.keys()).find((name) => this.players.get(name)!.isDefending);
 
         if (typeof defendingPlayer === "undefined") {
-            throw new Error("Invalid game state.")
+            throw new InvalidGameState("Invalid game state.")
         }
 
         return defendingPlayer;
@@ -540,7 +542,7 @@ export class Game {
         const playerIndex = playerNames.indexOf(name);
 
         if (playerIndex < 0) {
-            throw new Error("Player is out of the game or doesn't exist within the lobby.");
+            throw new InvalidGameState("Player is out of the game or doesn't exist within the lobby.");
         }
 
         let index = offset + playerIndex;
@@ -571,7 +573,7 @@ export class Game {
         const roundStarter = Array.from(this.players.keys()).find((name) => this.players.get(name)!.beganRound);
 
         if (typeof roundStarter === "undefined") {
-            throw new Error("Invalid game state");
+            throw new InvalidGameState("Invalid game state");
         }
 
         return roundStarter;
@@ -610,7 +612,7 @@ export class Game {
      * */
     getCardOnTableTopAt(pos: number): string | null {
         if (pos < 0 || pos > 5) {
-            throw new Error(`Can't get table top card at position '${pos}'`);
+            throw new InvalidGameState(`Can't get table top card at position '${pos}'`);
         }
 
         return Array.from(this.tableTop.keys())[pos];
@@ -630,15 +632,15 @@ export class Game {
      * */
     transferCardOntoTable(player: Player, card: string) {
         if (this.victory) {
-            throw new Error("Can't mutate game state after victory.");
+            throw new InvalidGameState("Can't mutate game state after victory.");
         }
 
         if (this.tableTop.size === 6) {
-            throw new Error("Player deck already full.");
+            throw new InvalidGameState("Player deck already full.");
         }
 
         if (!player.deck.includes(card)) {
-            throw new Error("Defending card is not present in the defending players deck.");
+            throw new InvalidGameState("Defending card is not present in the defending players deck.");
         }
 
         this.tableTop.set(card, null);
@@ -664,11 +666,11 @@ export class Game {
      * */
     transferTableTop(to: string) {
         if (this.victory) {
-            throw new Error("Can't mutate game state after victory.");
+            throw new InvalidGameState("Can't mutate game state after victory.");
         }
 
         if (!this.players.has(to)) {
-            throw new Error("Player doesn't exist.");
+            throw new InvalidGameState("Player doesn't exist.");
         }
 
         this.players.get(to)!.deck.push(...this.getTableTopDeck());
@@ -747,7 +749,7 @@ export class Game {
         const player = this.players.get(name);
 
         if (typeof player === 'undefined') {
-            throw new Error("Invalid game state.")
+            throw new InvalidGameState("Invalid game state.")
         }
 
         return player;
