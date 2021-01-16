@@ -165,8 +165,14 @@ export class Game {
 
             this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 2));
         } else {
+            const defender = this.getDefendingPlayerName();
+
+            // Use getPlayerOrderFrom here to avoid issue with when the defender gets out of the game
+            // and is no longer part of the rounds.
+            const playerOrder = this.getPlayerOrderFrom(defender).filter((p) => !this.getPlayer(p).out);
+
             // check that all players have declared that they finished the round.
-            this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 1));
+            this.setDefendingPlayer(playerOrder[0]);
         }
 
         // Check if the 'spare' deck size is greater than zero and therefore we can
@@ -280,8 +286,15 @@ export class Game {
                 throw new InvalidGameState("Improper card for the transfer of defense state to next player.");
             }
 
-            // transfer defense state to the next player
-            this.setDefendingPlayer(this.getPlayerNameByOffset(name, 1));
+            // edge case here: if the defender puts the last card down and they don't have anymore
+            // cards to pickup, they should be flagged as out of the game, and the defense should
+            // be transferred to the next player, but the attack should be the previous player.
+            if (player.deck.length === 1 && this.deck.length === 0) {
+                player.out = Date.now();
+            }
+
+            const playerOrder = this.getPlayerOrderFrom(name).filter((p) => !this.getPlayer(p).out);
+            this.setDefendingPlayer(playerOrder[0]);
         }
 
         // add the card to the table top from the player's deck.
@@ -297,15 +310,15 @@ export class Game {
             // Declare after turn finalisation since they might be the attacking player and we need
             // to preserve the order for every other player to receive the ability to attack the
             // defender.
-            player.out = Date.now();
+            if (!player.out) player.out = Date.now(); // The player may already be out due to the code above
 
             // Uhh we have to now check if this was the attacking player, and transfer the
             // attack to the next 'alive' player.
-            if (player.canAttack) {
-                const playerOrder = this.getPlayerOrderFrom(name).filter((p) => !this.getPlayer(p).out);
-
-                this.setDefendingPlayer(playerOrder[2 % playerOrder.length]);
-            }
+            // if (player.beganRound) {
+            //     const playerOrder = this.getPlayerOrderFrom(name).filter((p) => !this.getPlayer(p).out);
+            //
+            //     this.setDefendingPlayer(playerOrder[2 % playerOrder.length]);
+            // }
 
             // now check here if there is only one player remaining in the game.
             if (this.getActivePlayers().length === 1) {
@@ -392,6 +405,9 @@ export class Game {
 
         // check if the whole table has been covered, then invoke finaliseRound()
         if (this.getCoveredCount() === Game.DeckSize || defendingPlayer.deck.length === 0) {
+            // declare that the defending player is out
+            defendingPlayer.out = Date.now();
+
             this.finaliseRound();
         } else {
             // reset everybody's (except defender) 'turned' value since the tableTop state changed.
