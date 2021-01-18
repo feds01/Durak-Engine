@@ -115,7 +115,7 @@ export class Game {
      *
      * @return {Game} A game object from the game state.
      * */
-    static fromState(state: GameState) {
+    static fromState(state: GameState): Game {
         const game = new Game(Object.keys(state.players), state.history);
 
         game.trumpCard = state.trumpCard;
@@ -407,7 +407,6 @@ export class Game {
         if (this.getCoveredCount() === Game.DeckSize || defendingPlayer.deck.length === 0) {
             // declare that the defending player is out
             if (this.deck.length === 0) defendingPlayer.out = Date.now();
-
             this.finaliseRound();
         } else {
             // reset everybody's (except defender) 'turned' value since the tableTop state changed.
@@ -444,9 +443,9 @@ export class Game {
         let attackingPlayer = this.getPlayer(this.getPlayerNameByOffset(name, -1));
 
         attackingPlayer.canAttack = true;
+        attackingPlayer.beganRound = true;
 
         // TODO: should we be transferring 'beganRound' privileges when a defence is transferred?
-        attackingPlayer.beganRound = true;
         defendingPlayer.isDefending = true;
     }
 
@@ -529,7 +528,7 @@ export class Game {
      * This function is used to retrieve the current defending player from the
      * player list.
      *
-     * @return {String} the 'id' of the defending player.
+     * @return {String} the name of the defending player.
      * */
     getDefendingPlayerName(): string {
         const defendingPlayer = Array.from(this.players.keys()).find((name) => this.players.get(name)!.isDefending);
@@ -539,6 +538,23 @@ export class Game {
         }
 
         return defendingPlayer;
+    }
+
+    /**
+     * @version 1.0.0
+     * This function is used to retrieve the current attacking player from the
+     * player list.
+     *
+     * @return {String} the name of the attacking player.
+     * */
+    getAttackingPlayerName(): string {
+        const attackingPlayer = Array.from(this.players.keys()).find((name) => this.players.get(name)!.beganRound);
+
+        if (typeof attackingPlayer === "undefined") {
+            throw new InvalidGameState("Invalid game state.")
+        }
+
+        return attackingPlayer;
     }
 
     /**
@@ -574,7 +590,7 @@ export class Game {
      * @returns {Array<Array<string, object>>} An array of player name with the player's state.
      * */
     getActivePlayers(): [string, Player][] {
-        return Array.from(this.players.entries()).filter(([name, player]) => player.out === null);
+        return Array.from(this.players.entries()).filter(([name, player]) => !player.out);
     }
 
     /**
@@ -777,7 +793,7 @@ export class Game {
      *
      * @return {{
      *  trumpCard: {suit: String, value: number, card: String},
-     *  players: Map<string, Object>,
+     *  players: {string, Player},
      *  deck: Array<string>,
      *  tableTop: Map<string, string>,
      *  history: Map<number, Object>

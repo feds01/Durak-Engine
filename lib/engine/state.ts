@@ -3,14 +3,20 @@ import {Player} from "./player";
 import {CardType} from "./card";
 
 export class GameState {
+    readonly players: {[key: string]: Player};
+    readonly tableTop: {[key: string]: string | null};
+
     constructor(
-        public players: Map<string, Player>,
+        players: Map<string, Player>,
         public history: History | null,
-        public tableTop: Map<string, string | null>,
+        tableTop: Map<string, string | null>,
         public deck: string[],
         public trumpCard: CardType,
         public victory: boolean
-    ) {}
+    ) {
+        this.players = Object.fromEntries(players.entries());
+        this.tableTop = Object.fromEntries(tableTop.entries());
+    }
 }
 
 export type PlayerState = {

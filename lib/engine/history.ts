@@ -7,6 +7,7 @@ enum HistoryNodeType {
     PLACE="place",
     COVER="cover",
     FORFEIT="forfeit",
+    NEW_ROUND="new_round",
     VOID="void",
     PICKUP="pickup",
     EXIT="exit",
