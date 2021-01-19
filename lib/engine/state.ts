@@ -8,7 +8,6 @@ export class GameState {
 
     constructor(
         players: Map<string, Player>,
-        public history: History | null,
         tableTop: Map<string, string | null>,
         public deck: string[],
         public trumpCard: CardType,

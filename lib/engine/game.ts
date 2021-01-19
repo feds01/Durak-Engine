@@ -1,10 +1,18 @@
-import {History} from "./history";
 import {Player} from "./player";
 import {GameState, PlayerGameState} from "./state";
 import {getRandomKey, shuffleArray} from "../utils";
-import {CardType, generateCardDeck, parseCard} from "./card";
-import InvalidGameState from "./errors/InvalidGameState";
 import GameInitError from "./errors/GameInitError";
+import InvalidGameState from "./errors/InvalidGameState";
+import {History, ActionType, HistoryState} from "./history";
+import {CardType, generateCardDeck, parseCard} from "./card";
+
+export type GameSettings = {
+    randomisePlayerOrder: boolean;
+}
+
+const defaultSettings: GameSettings = {
+    randomisePlayerOrder: false
+}
 
 /**
  * @version 1.0.0
@@ -28,7 +36,7 @@ export class Game {
 
     static TableSize: number = 6;
 
-    private readonly history: History | null;
+    private readonly history: History;
     private players: Map<string, Player>;
     private _victory: boolean = false;
 
@@ -39,11 +47,11 @@ export class Game {
      *
      * @constructor
      * @param {Array<string>} players An array of player names that are within the game.
-     * @param {History} history - An array of history nodes for the game to rebuild the previous
+     * @param {HistoryState} history - An array of history nodes for the game to rebuild the previous
+     * @param {GameSettings} settings - Any settings that should be used for the game.
      * state from.
      * */
-    constructor(players: string[], history: History | null) {
-        this.history = history;
+    constructor(players: string[], history: HistoryState | null, settings: GameSettings = defaultSettings) {
         this.players = new Map();
 
         /**
@@ -67,6 +75,10 @@ export class Game {
 
         // generate card deck and shuffle it for the game
         shuffleArray(this.deck);
+
+        // apply a shuffle to player array if the caller specified to begin
+        // the game with random player order
+        if (settings.randomisePlayerOrder) shuffleArray(players);
 
         // set the game up for the 'players' number.
         for (let index = 0; index < players.length; index++) {
@@ -97,6 +109,20 @@ export class Game {
 
         // put top card to the bottom of the deck as is in the real game
         this.deck.push(this.deck.shift()!);
+
+        // initialise the history object if this game hasn't initialised a history
+        // object yet, otherwise re-use the provided history object
+        if (history === null || history.initialState === null) {
+            this.history = new History(this.serialize().game, []);
+
+            // since it's a new round, we need to create a new node.
+            this.history.createNode({
+                type: ActionType.NEW_ROUND,
+                from: "void",
+            });
+        } else {
+            this.history = new History(history.initialState, history.nodes);
+        }
     }
 
 
@@ -104,19 +130,13 @@ export class Game {
      * @version 1.0.0
      * Create a game object from a previous game state.
      *
-     * @param {{
-     *     players: Object<string, Object>,
-     *     history: Object<number, Object>,
-     *     tableTop: Object<string, string>,
-     *     deck: Array<string>,
-     *     trumpCard: {value: number, suit: string, card: string},
-     *     hasVictory: boolean,
-     * }} state - The game state including players, history, tableTop, deck and trump card.
-     *
+     * @param {GameState} state - The game state including players, history, tableTop, deck and trump card.
+     * @param {HistoryState} history - The previous game history (if any).
+     * @param {GameSettings} settings - The game settings
      * @return {Game} A game object from the game state.
      * */
-    static fromState(state: GameState): Game {
-        const game = new Game(Object.keys(state.players), state.history);
+    static fromState(state: GameState, history: HistoryState, settings: GameSettings): Game {
+        const game = new Game(Object.keys(state.players), history, settings);
 
         game.trumpCard = state.trumpCard;
         game.tableTop = new Map(Object.entries(state.tableTop));
@@ -137,7 +157,6 @@ export class Game {
      * themselves or has decided to pickup the cards. Additionally, the method should
      * iterate over all the players to replenish the player card decks.
      *
-     * @todo add this transaction as a history node.
      * */
     finaliseRound(): void {
         if (this.victory) {
@@ -216,6 +235,21 @@ export class Game {
         // finally after finalising player turns, void the table top
         this.voidTableTop();
 
+        if (hasVictory) {
+            // Add history entry for the victory
+            this.history.addEntry({
+                type: ActionType.VICTORY,
+                from: "void",
+                additional: {at: Date.now()}
+            });
+        } else {
+            // since it's a new round, we need to create a new node.
+            this.history.createNode({
+                type: ActionType.NEW_ROUND,
+                from: "void",
+            });
+        }
+
         this.victory = hasVictory;
     }
 
@@ -291,6 +325,13 @@ export class Game {
             // be transferred to the next player, but the attack should be the previous player.
             if (player.deck.length === 1 && this.deck.length === 0) {
                 player.out = Date.now();
+
+                // Add history entry for the player exit
+                this.history.addEntry({
+                    type: ActionType.EXIT,
+                    from: {player: name},
+                    additional: {at: player.out}
+                });
             }
 
             const playerOrder = this.getPlayerOrderFrom(name).filter((p) => !this.getPlayer(p).out);
@@ -298,7 +339,7 @@ export class Game {
         }
 
         // add the card to the table top from the player's deck.
-        this.transferCardOntoTable(player, card);
+        this.transferCardOntoTable(name, card);
 
         // check if the player has no cards in the deck and there no cards in the game deck, then the
         // current player has 'won' the game and apply a timestamp to when they exited the round.
@@ -310,19 +351,27 @@ export class Game {
             // Declare after turn finalisation since they might be the attacking player and we need
             // to preserve the order for every other player to receive the ability to attack the
             // defender.
-            if (!player.out) player.out = Date.now(); // The player may already be out due to the code above
+            if (!player.out) {
+                player.out = Date.now();
 
-            // Uhh we have to now check if this was the attacking player, and transfer the
-            // attack to the next 'alive' player.
-            // if (player.beganRound) {
-            //     const playerOrder = this.getPlayerOrderFrom(name).filter((p) => !this.getPlayer(p).out);
-            //
-            //     this.setDefendingPlayer(playerOrder[2 % playerOrder.length]);
-            // }
+                // Add history entry for the player exit
+                this.history.addEntry({
+                    type: ActionType.EXIT,
+                    from: {player: name},
+                    additional: {at: player.out}
+                });
+            } // The player may already be out due to the code above
 
             // now check here if there is only one player remaining in the game.
             if (this.getActivePlayers().length === 1) {
                 this.victory = true;
+
+                // Add history entry for the victory
+                this.history.addEntry({
+                    type: ActionType.VICTORY,
+                    from: "void",
+                    additional: {at: Date.now()}
+                });
             }
         }
     }
@@ -351,10 +400,8 @@ export class Game {
      *
      * @param {string} card - The card that's going to be used to cover the table top card.
      * @param {number} pos - The position of the card that's going to be covered.
-     *
-     * @todo add this transaction as a history node.
      * */
-    coverCardOnTableTop(card: string, pos: number) {
+    coverCardOnTableTop(card: string, pos: number): void {
         const defendingPlayer = this.getPlayer(this.getDefendingPlayerName());
 
         if (this.victory) {
@@ -402,6 +449,14 @@ export class Game {
         // Transfer the player card from their deck to the the table top.
         this.tableTop.set(this.getCardOnTableTopAt(pos)!, card);
         defendingPlayer.deck = defendingPlayer.deck.filter((playerCard) => playerCard !== card);
+
+        // Add history entry for the pickup
+        this.history.addEntry({
+            type: ActionType.COVER,
+            data: this.getTableTopDeck(),
+            from: {player: this.getDefendingPlayerName()}, to: "tableTop",
+            additional: {on: pos}
+        });
 
         // check if the whole table has been covered, then invoke finaliseRound()
         if (this.getCoveredCount() === Game.TableSize || defendingPlayer.deck.length === 0) {
@@ -456,9 +511,8 @@ export class Game {
      * @param {String} name - The name of the player that the defending status
      *        is being transferred to.
      *
-     * @todo add this transaction as a history node.
      * */
-    finalisePlayerTurn(name: string): void {
+    private finalisePlayerTurn(name: string): void {
         if (this.victory) {
             throw new InvalidGameState("Can't mutate game state after victory.");
         }
@@ -469,6 +523,22 @@ export class Game {
 
         const player = this.getPlayer(name);
         player.turned = true;
+
+        // since these players are of significant importance to the round, add a
+        // history entry for the forfeit's, (that's if they haven't already declared that
+        // they have forfeited.
+        const forfeitDeclarations = this.history.getLastNode()!.findAction(ActionType.FORFEIT);
+
+        // @@Cleanup: clean this up, we could probably do this a much better way
+        if (forfeitDeclarations.find(action => action.from !== "tableTop" && action.from !== "void" &&
+            action.from.player === name)) {
+
+            this.history.addEntry({
+                type: ActionType.FORFEIT,
+                from: {player: name}
+            });
+
+        }
 
         // If this is the attacking player, set everyone's 'canAttack' (except defending)
         // player as true since the move has been made..
@@ -516,8 +586,7 @@ export class Game {
                 // Special case where 4 cards of the same numeric have been placed and
                 // all of them have not been covered, hence preventing attackers from
                 // placing anymore cards. Therefore it is safe to finalise the round.
-                (this.tableTop.size === 4 && uncoveredCards === 4 && new Set(tableTopCards).size === 1))
-            {
+                (this.tableTop.size === 4 && uncoveredCards === 4 && new Set(tableTopCards).size === 1)) {
                 return this.finaliseRound();
             }
         }
@@ -533,7 +602,7 @@ export class Game {
      *
      * @return {String} the name of the defending player.
      * */
-    getDefendingPlayerName(): string {
+    public getDefendingPlayerName(): string {
         const defendingPlayer = Array.from(this.players.keys()).find((name) => this.players.get(name)!.isDefending);
 
         if (typeof defendingPlayer === "undefined") {
@@ -550,7 +619,7 @@ export class Game {
      *
      * @return {String} the name of the attacking player.
      * */
-    getAttackingPlayerName(): string {
+    public getAttackingPlayerName(): string {
         const attackingPlayer = Array.from(this.players.keys()).find((name) => this.players.get(name)!.beganRound);
 
         if (typeof attackingPlayer === "undefined") {
@@ -572,7 +641,7 @@ export class Game {
      *
      * @return {String} the name of player 'offset' positions after the given one.
      * */
-    getPlayerNameByOffset(name: string, offset: number): string {
+    private getPlayerNameByOffset(name: string, offset: number): string {
         const playerNames = this.getActivePlayers().map(([name]) => name);
         const playerIndex = playerNames.indexOf(name);
 
@@ -592,7 +661,7 @@ export class Game {
      *
      * @returns {Array<Array<string, object>>} An array of player name with the player's state.
      * */
-    getActivePlayers(): [string, Player][] {
+    private getActivePlayers(): [string, Player][] {
         return Array.from(this.players.entries()).filter(([name, player]) => !player.out);
     }
 
@@ -604,7 +673,7 @@ export class Game {
      *
      * @return {string} the name of the player who initiated the round.
      * */
-    getRoundStarter(): string {
+    public getRoundStarter(): string {
         const roundStarter = Array.from(this.players.keys()).find((name) => this.players.get(name)!.beganRound);
 
         if (typeof roundStarter === "undefined") {
@@ -633,7 +702,7 @@ export class Game {
      *
      * @return {number} the number of covered cards.
      * */
-    getCoveredCount(): number {
+    public getCoveredCount(): number {
         return Array.from(this.tableTop.values()).filter((item): item is string => item !== null).length;
     }
 
@@ -645,7 +714,7 @@ export class Game {
      * @return {?String} The card on the table top at the given position, if nothing
      * is at the given position the method will return 'undefined'.
      * */
-    getCardOnTableTopAt(pos: number): string | null {
+    public getCardOnTableTopAt(pos: number): string | null {
         if (pos < 0 || pos > 5) {
             throw new InvalidGameState(`Can't get table top card at position '${pos}'`);
         }
@@ -659,13 +728,12 @@ export class Game {
      * the tableTop deck is already the size of six or if the card isn't present in
      * the players deck, the method will throw the error.
      *
-     * @param {Object} player - The player object that holds player state.
+     * @param {string} name - The name of the player that the card will be transferred to.
      * @param {String} card - The card that's being transferred from the players deck
      *        to the tableTop deck.
      *
-     * @todo add this transaction as a history node.
      * */
-    transferCardOntoTable(player: Player, card: string) {
+    private transferCardOntoTable(name: string, card: string) {
         if (this.victory) {
             throw new InvalidGameState("Can't mutate game state after victory.");
         }
@@ -674,18 +742,21 @@ export class Game {
             throw new InvalidGameState("Player deck already full.");
         }
 
+        const player = this.getPlayer(name);
+
         if (!player.deck.includes(card)) {
             throw new InvalidGameState("Defending card is not present in the defending players deck.");
         }
 
         this.tableTop.set(card, null);
         player.deck.splice(player.deck.indexOf(card), 1);
-    }
 
-    /**
-     * @version 1.0.0
-     * */
-    addHistoryNode() {
+        // Add history entry for the place
+        this.history.addEntry({
+            type: ActionType.PLACE,
+            data: this.getTableTopDeck(),
+            from: {player: name}, to: "tableTop"
+        });
     }
 
     /**
@@ -697,9 +768,8 @@ export class Game {
      *
      * @param {String} to - the 'id' of the player that the table top is being transferred to.
      *
-     * @todo add this transaction as a history node.
      * */
-    transferTableTop(to: string) {
+    private transferTableTop(to: string) {
         if (this.victory) {
             throw new InvalidGameState("Can't mutate game state after victory.");
         }
@@ -708,7 +778,17 @@ export class Game {
             throw new InvalidGameState("Player doesn't exist.");
         }
 
-        this.players.get(to)!.deck.push(...this.getTableTopDeck());
+        const player = this.getPlayer(to);
+
+        player.deck.push(...this.getTableTopDeck());
+
+        // Add history entry for the pickup
+        this.history.addEntry({
+            type: ActionType.PICKUP,
+            data: this.getTableTopDeck(),
+            to: {player: to}, from: "tableTop"
+        });
+
         this.voidTableTop();
     }
 
@@ -719,13 +799,12 @@ export class Game {
      * because it is the end of the round, and the defending player successfully
      * defended themselves against the attackers.
      *
-     * @todo add this transaction as a history node.
      * */
-    voidTableTop(): void {
+    private voidTableTop(): void {
         this.tableTop.clear();
     }
 
-    getPlayerOrderFrom(name: string): string[] {
+    private getPlayerOrderFrom(name: string): string[] {
         const players = Array.from(this.players.keys());
         const idx = players.indexOf(name);
 
@@ -743,7 +822,7 @@ export class Game {
      *
      * @param {String} playerName - The name of the player to generate state for
      * */
-    getStateForPlayer(playerName: string): PlayerGameState {
+    public getStateForPlayer(playerName: string): PlayerGameState {
         const player = this.getPlayer(playerName);
 
         // transpose the array to match the position of the player on the table
@@ -779,7 +858,7 @@ export class Game {
         }
     }
 
-    getPlayer(name: string): Player {
+    public getPlayer(name: string): Player {
 
         const player = this.players.get(name);
 
@@ -790,26 +869,26 @@ export class Game {
         return player;
     }
 
-    /**
-     * This method is used to serialize the object so it can be written to the database
-     * or send over a http transmission.
-     *
-     * @return {{
-     *  trumpCard: {suit: String, value: number, card: String},
-     *  players: {string, Player},
-     *  deck: Array<string>,
-     *  tableTop: Map<string, string>,
-     *  history: Map<number, Object>
-     * }}
-     * */
-    serialize(): GameState {
+    public getGameState(): GameState {
         return new GameState(
             this.players,
-            this.history,
             this.tableTop,
             this.deck,
             this.trumpCard,
             this.victory,
         );
+    }
+
+    /**
+     * This method is used to serialize the object so it can be written to the database
+     * or send over a http transmission.
+     *
+     * @return {{history: HistoryState, game: GameState}} the serialized version of the game, which is ready to be saved.
+     * */
+    public serialize(): {history: HistoryState, game: GameState} {
+        return {
+            history: this.history?.serialize(),
+            game: this.getGameState(),
+        }
     }
 }

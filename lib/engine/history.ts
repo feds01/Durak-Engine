@@ -1,25 +1,29 @@
 import {CardType} from "./card";
-import {Player} from "./player";
 import {GameState} from "./state";
+import InvalidHistoryState from "./errors/InvalidHistoryState";
 
 // bound to change
-enum HistoryNodeType {
-    PLACE="place",
-    COVER="cover",
-    FORFEIT="forfeit",
-    NEW_ROUND="new_round",
-    VOID="void",
-    PICKUP="pickup",
-    EXIT="exit",
-    VICTORY="victory"
+export enum ActionType {
+    PLACE = "place", // used
+    COVER = "cover", // used
+    FORFEIT = "forfeit", // used
+    NEW_ROUND = "new_round",
+    PICKUP = "pickup", // pickup
+    EXIT = "exit",   // used
+    VICTORY = "victory" // used
 }
 
-type ActorType = Player | "tableTop";
+// Special types when recording the actor, "tableTop" is what is on the actual
+// table at any time. The "void" actor type is used to represent when cards are
+// discarded or removed from the table top.
+export type ActorType = {player: string} | "tableTop" | "void";
 
-type Action = {
-    readonly type: HistoryNodeType
-    readonly data: CardType[];
-    readonly actors: ActorType[]
+export type Action = {
+    readonly type: ActionType;
+    readonly data?: CardType[] | string[];
+    readonly to?: ActorType;
+    readonly from: ActorType;
+    readonly additional?: {on?: number, at?: number};
 }
 
 /**
@@ -31,21 +35,35 @@ type Action = {
  * */
 export class HistoryNode {
     private _actions: Action[];
+    private _finalised: boolean;
 
     constructor(actions: Action[] | null) {
         this._actions = Array.isArray(actions) ? actions : [];
+        this._finalised = false;
     }
 
     set actions(value: Action[]) {
         this._actions = value;
     }
+
     get actions(): Action[] {
         return this._actions;
     }
 
+    set finalised(value: boolean) {
+        this._finalised = value;
+    }
+
+    get finalised(): boolean {
+        return this._finalised;
+    }
+
     addAction(action: Action): void {
-        // TODO: We don't do sanity checking yet.
         this._actions.push(action);
+    }
+
+    findAction(type: ActionType): Action[] {
+        return this._actions.filter((action) => action.type === type);
     }
 
     removeLast(): void {
@@ -57,6 +75,11 @@ export class HistoryNode {
     serialize(): Action[] {
         return this._actions;
     }
+}
+
+export type HistoryState = {
+    initialState: GameState | null,
+    nodes: Action[][]
 }
 
 
@@ -78,19 +101,47 @@ export class History {
      *                    the game can be re-created from the initial state.
      * @param {?HistoryNode[]} nodes - The history nodes of the previous history
      * */
-    constructor(initialState: GameState, nodes: HistoryNode[] | null) {
+    constructor(initialState: GameState, nodes: Action[][] | null) {
         this.initialState = initialState;
-        this.nodes = Array.isArray(nodes) ? nodes : [];
+        this.nodes = Array.isArray(nodes) ? nodes.map((node) => new HistoryNode(node)) : [];
     }
 
     /**
      * Method to add a history node to the history.
      *
-     * @throws {InvalidGameState} if the node type data or actors are inconsistent with
-     * the initial game state.
+     * @param {Action | null} begin - Optional initial history entry for the current to start
+     * the node off. This parameter is optional and does not need to be utilised.
+     *
      * */
-    createNode(): void {
-        this.nodes.push(new HistoryNode([]));
+    createNode(begin: Action | null): void {
+        const nodes = [];
+
+        // We might have to declare the previous node as finalised
+        const prevNode = this.getLastNode();
+        if (prevNode !== null) prevNode.finalised = true;
+
+        // Add the initial node to the HistoryNode (if provided)
+        if (begin !== null) nodes.push(begin);
+
+        this.nodes.push(new HistoryNode(nodes));
+    }
+
+
+    /**
+     * Method to an entry to the most recent history node. If no node currently
+     * exists in the history object, the method will throw an exception as it expects
+     * that at least one {@see HistoryNode} exists.
+     *
+     * @param {Action} action - The action that is to be added.
+     * @throws {InvalidHistoryState} If no HistoryNode exists in the current object
+     * */
+    addEntry(action: Action): void {
+        if (this.nodes.length === 0) {
+            throw new InvalidHistoryState("Cannot add entry when no nodes exist.");
+        }
+
+        const node = this.getLastNode()!;
+        node.addAction(action);
     }
 
     /**
@@ -103,19 +154,22 @@ export class History {
         this.nodes.pop();
     }
 
-    /**
-     *
-     * */
     getLastNode(): HistoryNode | null {
         if (this.nodes.length === 0) return null;
 
         return this.nodes[this.nodes.length - 1];
     }
 
-    serialize(): {initialState: GameState, nodes: HistoryNode[]} {
+    /**
+     * This method is used to serialize the object so it can be written to the database
+     * or send over a http transmission.
+     *
+     * @return {HistoryState} the serialized version of the history.
+     * */
+    serialize(): HistoryState {
         return {
             initialState: this.initialState,
-            nodes: this.nodes,
+            nodes: this.nodes.map(node => node.serialize()),
         }
     }
 
