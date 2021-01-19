@@ -10,7 +10,7 @@ describe("Game tests", () => {
         const game = new Game(["player1", "player2"], null, {randomisePlayerOrder: false});
         const save = game.serialize();
 
-       expect(Game.fromState(save.game, save.history, {randomisePlayerOrder: false})).toStrictEqual(game);
+       expect(Game.fromState(save.state, save.history, {randomisePlayerOrder: false})).toStrictEqual(game);
     });
 
     test("Game.fromState re-creates correct state after move", () => {
@@ -21,6 +21,6 @@ describe("Game tests", () => {
         game.addCardToTableTop(attacker, game.getPlayer(attacker).deck[0]);
 
         const save = game.serialize();
-        expect(Game.fromState(save.game, save.history, {randomisePlayerOrder: false})).toStrictEqual(game);
+        expect(Game.fromState(save.state, save.history, {randomisePlayerOrder: false})).toStrictEqual(game);
     });
 });

@@ -113,7 +113,7 @@ export class Game {
         // initialise the history object if this game hasn't initialised a history
         // object yet, otherwise re-use the provided history object
         if (history === null || history.initialState === null) {
-            this.history = new History(this.serialize().game, []);
+            this.history = new History(this.serialize().state, []);
 
             // since it's a new round, we need to create a new node.
             this.history.createNode({
@@ -883,12 +883,12 @@ export class Game {
      * This method is used to serialize the object so it can be written to the database
      * or send over a http transmission.
      *
-     * @return {{history: HistoryState, game: GameState}} the serialized version of the game, which is ready to be saved.
+     * @return {{history: HistoryState, state: GameState}} the serialized version of the game, which is ready to be saved.
      * */
-    public serialize(): {history: HistoryState, game: GameState} {
+    public serialize(): {history: HistoryState, state: GameState} {
         return {
             history: this.history?.serialize(),
-            game: this.getGameState(),
+            state: this.getGameState(),
         }
     }
 }
