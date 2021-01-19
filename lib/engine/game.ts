@@ -135,7 +135,7 @@ export class Game {
      * @param {GameSettings} settings - The game settings
      * @return {Game} A game object from the game state.
      * */
-    static fromState(state: GameState, history: HistoryState, settings: GameSettings): Game {
+    static fromState(state: GameState, history: HistoryState, settings: GameSettings = defaultSettings): Game {
         const game = new Game(Object.keys(state.players), history, settings);
 
         game.trumpCard = state.trumpCard;
@@ -512,7 +512,7 @@ export class Game {
      *        is being transferred to.
      *
      * */
-    private finalisePlayerTurn(name: string): void {
+    public finalisePlayerTurn(name: string): void {
         if (this.victory) {
             throw new InvalidGameState("Can't mutate game state after victory.");
         }
