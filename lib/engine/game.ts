@@ -26,7 +26,7 @@ export class Game {
         this._victory = value;
     }
 
-    static DeckSize: number = 6;
+    static TableSize: number = 6;
 
     private readonly history: History | null;
     private players: Map<string, Player>;
@@ -74,7 +74,7 @@ export class Game {
         }
 
         // distribute the cards between the players as if in a physical way
-        for (let index = 0; index < Game.DeckSize; index++) {
+        for (let index = 0; index < Game.TableSize; index++) {
             this.players.forEach((player) => {
                 player.addCard(this.deck.shift()!);
             });
@@ -404,7 +404,7 @@ export class Game {
         defendingPlayer.deck = defendingPlayer.deck.filter((playerCard) => playerCard !== card);
 
         // check if the whole table has been covered, then invoke finaliseRound()
-        if (this.getCoveredCount() === Game.DeckSize || defendingPlayer.deck.length === 0) {
+        if (this.getCoveredCount() === Game.TableSize || defendingPlayer.deck.length === 0) {
             // declare that the defending player is out
             if (this.deck.length === 0) defendingPlayer.out = Date.now();
             this.finaliseRound();
@@ -445,7 +445,6 @@ export class Game {
         attackingPlayer.canAttack = true;
         attackingPlayer.beganRound = true;
 
-        // TODO: should we be transferring 'beganRound' privileges when a defence is transferred?
         defendingPlayer.isDefending = true;
     }
 
@@ -486,7 +485,7 @@ export class Game {
         }
 
         if (this.getActivePlayers().every(player => player[1].turned)) {
-            this.finaliseRound();
+            return this.finaliseRound();
         }
 
 
@@ -505,17 +504,21 @@ export class Game {
         // can't put down anymore cards.
         const uncoveredCards = this.tableTop.size - this.getCoveredCount();
         const tableTopCards = this.getTableTopDeck().map(card => parseCard(card).value);
+        const defender = this.getPlayer(defendingPlayerName);
 
-        if (name === defendingPlayerName) {
+        // If the defender has declared that they have forfeited, then check if we should
+        // auto skip...
+        if (defender.turned) {
             if (
-                this.tableTop.size === Game.DeckSize ||
-                uncoveredCards === player.deck.length ||
+                this.tableTop.size === Game.TableSize ||
+                uncoveredCards === defender.deck.length ||
 
                 // Special case where 4 cards of the same numeric have been placed and
                 // all of them have not been covered, hence preventing attackers from
                 // placing anymore cards. Therefore it is safe to finalise the round.
-                (this.tableTop.size === 4 && uncoveredCards === 4 && new Set(tableTopCards).size === 1)) {
-                this.finaliseRound();
+                (this.tableTop.size === 4 && uncoveredCards === 4 && new Set(tableTopCards).size === 1))
+            {
+                return this.finaliseRound();
             }
         }
 
