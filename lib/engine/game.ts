@@ -1,9 +1,9 @@
 import {Player} from "./player";
+import {History, HistoryState} from "./history";
 import {GameState, PlayerGameState} from "./state";
 import {getRandomKey, shuffleArray} from "../utils";
 import GameInitError from "./errors/GameInitError";
 import InvalidGameState from "./errors/InvalidGameState";
-import {History, ActionType, HistoryState} from "./history";
 import {CardType, generateCardDeck, parseCard} from "./card";
 
 export type GameSettings = {
@@ -116,10 +116,7 @@ export class Game {
             this.history = new History(this.serialize().state, []);
 
             // since it's a new round, we need to create a new node.
-            this.history.createNode({
-                type: ActionType.NEW_ROUND,
-                from: "void",
-            });
+            this.history.createNode({ type: "new_round"});
         } else {
             this.history = new History(history.initialState, history.nodes);
         }
@@ -238,15 +235,13 @@ export class Game {
         if (hasVictory) {
             // Add history entry for the victory
             this.history.addEntry({
-                type: ActionType.VICTORY,
-                from: "void",
-                additional: {at: Date.now()}
+                type: "victory",
+                at: Date.now()
             });
         } else {
             // since it's a new round, we need to create a new node.
             this.history.createNode({
-                type: ActionType.NEW_ROUND,
-                from: "void",
+                type: "new_round",
             });
         }
 
@@ -328,9 +323,9 @@ export class Game {
 
                 // Add history entry for the player exit
                 this.history.addEntry({
-                    type: ActionType.EXIT,
-                    from: {player: name},
-                    additional: {at: player.out}
+                    type: "exit",
+                    // from: {player: name},
+                    at: player.out
                 });
             }
 
@@ -356,9 +351,9 @@ export class Game {
 
                 // Add history entry for the player exit
                 this.history.addEntry({
-                    type: ActionType.EXIT,
-                    from: {player: name},
-                    additional: {at: player.out}
+                    type: "exit",
+                    // from: {player: name},
+                    at: player.out
                 });
             } // The player may already be out due to the code above
 
@@ -368,9 +363,8 @@ export class Game {
 
                 // Add history entry for the victory
                 this.history.addEntry({
-                    type: ActionType.VICTORY,
-                    from: "void",
-                    additional: {at: Date.now()}
+                    type: "victory",
+                    at: Date.now()
                 });
             }
         }
@@ -452,10 +446,10 @@ export class Game {
 
         // Add history entry for the pickup
         this.history.addEntry({
-            type: ActionType.COVER,
-            data: this.getTableTopDeck(),
+            type: "cover",
+            data: [card],
             from: {player: this.getDefendingPlayerName()}, to: "tableTop",
-            additional: {on: pos}
+            on: pos
         });
 
         // check if the whole table has been covered, then invoke finaliseRound()
@@ -527,14 +521,11 @@ export class Game {
         // since these players are of significant importance to the round, add a
         // history entry for the forfeit's, (that's if they haven't already declared that
         // they have forfeited.
-        const forfeitDeclarations = this.history.getLastNode()!.findAction(ActionType.FORFEIT);
+        const forfeitDeclarations = this.history.getLastNode()!.findAction("forfeit");
 
-        // @@Cleanup: clean this up, we could probably do this a much better way
-        if (forfeitDeclarations.find(action => action.from !== "tableTop" && action.from !== "void" &&
-            action.from.player === name)) {
-
+        if (forfeitDeclarations.find((action) => action.from !== "tableTop" && action.from.player === name)) {
             this.history.addEntry({
-                type: ActionType.FORFEIT,
+                type: "forfeit",
                 from: {player: name}
             });
 
@@ -753,7 +744,7 @@ export class Game {
 
         // Add history entry for the place
         this.history.addEntry({
-            type: ActionType.PLACE,
+            type: "place",
             data: this.getTableTopDeck(),
             from: {player: name}, to: "tableTop"
         });
@@ -784,7 +775,7 @@ export class Game {
 
         // Add history entry for the pickup
         this.history.addEntry({
-            type: ActionType.PICKUP,
+            type: "pickup",
             data: this.getTableTopDeck(),
             to: {player: to}, from: "tableTop"
         });

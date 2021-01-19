@@ -2,29 +2,27 @@ import {CardType} from "./card";
 import {GameState} from "./state";
 import InvalidHistoryState from "./errors/InvalidHistoryState";
 
-// bound to change
-export enum ActionType {
-    PLACE = "place", // used
-    COVER = "cover", // used
-    FORFEIT = "forfeit", // used
-    NEW_ROUND = "new_round",
-    PICKUP = "pickup", // pickup
-    EXIT = "exit",   // used
-    VICTORY = "victory" // used
-}
+export type PlayerActionType = "place" | "cover" | "forfeit" | "pickup";
+export type AutoActionType = "exit" | "victory" | "new_round";
 
 // Special types when recording the actor, "tableTop" is what is on the actual
-// table at any time. The "void" actor type is used to represent when cards are
-// discarded or removed from the table top.
-export type ActorType = {player: string} | "tableTop" | "void";
+// table at any time.
+export type ActorType = {player: string} | "tableTop";
 
-export type Action = {
-    readonly type: ActionType;
-    readonly data?: CardType[] | string[];
+export type PlayerAction = {
+    readonly type: PlayerActionType
+    readonly data?: string[];
     readonly to?: ActorType;
     readonly from: ActorType;
-    readonly additional?: {on?: number, at?: number};
+    readonly on?: number;
 }
+
+export type AutonomousAction = {
+    readonly type: AutoActionType
+    readonly at?: number | string
+}
+
+export type Action = PlayerAction | AutonomousAction;
 
 /**
  * @version 1.0.0
@@ -62,9 +60,13 @@ export class HistoryNode {
         this._actions.push(action);
     }
 
-    findAction(type: ActionType): Action[] {
-        return this._actions.filter((action) => action.type === type);
+    findAction<T extends AutoActionType | PlayerActionType>(type: T): (Action & {type: T})[] {
+        return this._actions.filter((action) => action.type === type) as (Action & {type: T})[];
     }
+
+    // findAction<T: AutoActionType | PlayerActionType>(type: T): (Action & {type: T})[] as (Action & {type: T})[] {
+    //     return this._actions.filter((action) => action.type === type);
+    // }
 
     removeLast(): void {
         if (this._actions.length === 0) return;
