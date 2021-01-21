@@ -1,4 +1,3 @@
-import {CardType} from "./card";
 import {GameState} from "./state";
 import InvalidHistoryState from "./errors/InvalidHistoryState";
 
@@ -10,7 +9,7 @@ export type AutoActionType = "exit" | "victory" | "new_round";
 export type ActorType = {player: string} | "tableTop";
 
 export type PlayerAction = {
-    readonly type: PlayerActionType
+    readonly type: PlayerActionType;
     readonly data?: string[];
     readonly to?: ActorType;
     readonly from: ActorType;
@@ -18,8 +17,12 @@ export type PlayerAction = {
 }
 
 export type AutonomousAction = {
-    readonly type: AutoActionType
-    readonly at?: number | string
+    readonly type: AutoActionType;
+    readonly at?: number | string;
+    readonly actors?: {
+        defender: string,
+        attacker: string,
+    }
 }
 
 export type Action = PlayerAction | AutonomousAction;
@@ -32,56 +35,111 @@ export type Action = PlayerAction | AutonomousAction;
  * @author Alexander. E. Fedotov
  * */
 export class HistoryNode {
+    /**
+     * Array of actions that are stored in the current HistoryNode
+     * */
     private _actions: Action[];
+
+    /**
+     * This is used as a flag for external callers to determine whether or not the
+     * node has no more new events to come in.
+     * */
     private _finalised: boolean;
 
-    constructor(actions: Action[] | null) {
+    /**
+     * HistoryNode constructor
+     * */
+    constructor(actions: Action[] | null, finalised: boolean = false) {
         this._actions = Array.isArray(actions) ? actions : [];
-        this._finalised = false;
+        this._finalised = finalised;
     }
 
+    /**
+    * Setter method for the node's actions parameter.
+    * */
     set actions(value: Action[]) {
         this._actions = value;
     }
 
+    /**
+     * Getter method for the node's actions parameter.
+     * */
     get actions(): Action[] {
         return this._actions;
     }
 
+    /**
+     * Setter method for the node's finalised parameter.
+     *
+     * @param {boolean} value - Set the finalised value for the HistoryNode.
+     * */
     set finalised(value: boolean) {
         this._finalised = value;
     }
 
+    /**
+     * Getter method for the node's finalised parameter.
+     *
+     * @return {boolean} Whether or not the HistoryNode has been finalised.
+     * */
     get finalised(): boolean {
         return this._finalised;
     }
 
+    /**
+     * Method to add an action to the current node.
+     *
+     * @param {Action} action - The action to be added to the HistoryNode.
+     * */
     addAction(action: Action): void {
+        if (this.finalised) throw new InvalidHistoryState("Can't add Action to HistoryNode that's been finalised.");
+
         this._actions.push(action);
     }
 
+    /**
+     * Setter method for the node's actions parameter.
+     * */
     findAction<T extends AutoActionType | PlayerActionType>(type: T): (Action & {type: T})[] {
         return this._actions.filter((action) => action.type === type) as (Action & {type: T})[];
     }
 
-    // findAction<T: AutoActionType | PlayerActionType>(type: T): (Action & {type: T})[] as (Action & {type: T})[] {
-    //     return this._actions.filter((action) => action.type === type);
-    // }
+    /**
+     * Method to return the length of the current node. This might be used to summarise
+     * multiple recorded actions into a single batch or a 'transient event'
+     *
+     * @return {number} Returns the total length of all of the actions in this history node
+     * */
+    getSize(): number {
+        return this._actions.length;
+    }
 
+    /**
+     * Method to remove the last action of the current node.
+     * */
     removeLast(): void {
         if (this._actions.length === 0) return;
 
         this._actions.pop();
     }
 
-    serialize(): Action[] {
-        return this._actions;
+    /**
+     * This method is used to serialize the object. This will essentially convert
+     * the HistoryNode object into JSON.
+     *
+     * @return {Action[]} the serialized version of the history.
+     * */
+    serialize(): {actions: Action[], finalised: boolean} {
+        return {
+            actions: this._actions,
+            finalised: this.finalised,
+        };
     }
 }
 
 export type HistoryState = {
     initialState: GameState | null,
-    nodes: Action[][]
+    nodes: {actions: Action[], finalised: boolean}[]
 }
 
 
@@ -103,9 +161,9 @@ export class History {
      *                    the game can be re-created from the initial state.
      * @param {?HistoryNode[]} nodes - The history nodes of the previous history
      * */
-    constructor(initialState: GameState, nodes: Action[][] | null) {
+    constructor(initialState: GameState, nodes: {actions: Action[], finalised: boolean}[] | null) {
         this.initialState = initialState;
-        this.nodes = Array.isArray(nodes) ? nodes.map((node) => new HistoryNode(node)) : [];
+        this.nodes = Array.isArray(nodes) ? nodes.map((node) => new HistoryNode(node.actions, node.finalised)) : [];
     }
 
     /**
@@ -156,6 +214,9 @@ export class History {
         this.nodes.pop();
     }
 
+    /**
+     * Method to get the last {@see HistoryNode} of the History object.
+     * */
     getLastNode(): HistoryNode | null {
         if (this.nodes.length === 0) return null;
 
@@ -163,8 +224,8 @@ export class History {
     }
 
     /**
-     * This method is used to serialize the object so it can be written to the database
-     * or send over a http transmission.
+     * This method is used to serialize the object. This will essentially convert
+     * the history object into JSON.
      *
      * @return {HistoryState} the serialized version of the history.
      * */

@@ -116,7 +116,12 @@ export class Game {
             this.history = new History(this.serialize().state, []);
 
             // since it's a new round, we need to create a new node.
-            this.history.createNode({type: "new_round"});
+            this.history.createNode({
+                type: "new_round", actors: {
+                    defender: this.getDefendingPlayerName(),
+                    attacker: this.getAttackingPlayerName(),
+                }
+            });
         } else {
             this.history = new History(history.initialState, history.nodes);
         }
@@ -242,7 +247,12 @@ export class Game {
             this.history.addEntry({type: "victory", at: Date.now()});
         } else {
             // since it's a new round, we need to create a new node.
-            this.history.createNode({type: "new_round"});
+            this.history.createNode({
+                type: "new_round", actors: {
+                    defender: this.getDefendingPlayerName(),
+                    attacker: this.getAttackingPlayerName(),
+                }
+            });
         }
 
         this.victory = hasVictory;
@@ -344,7 +354,7 @@ export class Game {
                 player.out = Date.now();
 
                 // Add history entry for the player exit
-                this.history.addEntry({ type: "exit", at: player.out});
+                this.history.addEntry({type: "exit", at: player.out});
             } // The player may already be out due to the code above
 
             // now check here if there is only one player remaining in the game.
@@ -352,7 +362,7 @@ export class Game {
                 this.victory = true;
 
                 // Add history entry for the victory
-                this.history.addEntry({ type: "victory", at: Date.now()});
+                this.history.addEntry({type: "victory", at: Date.now()});
             }
         }
 
@@ -530,7 +540,7 @@ export class Game {
         const forfeitDeclarations = this.history.getLastNode()!.findAction("forfeit");
 
         if (forfeitDeclarations.find((action) => action.from !== "tableTop" && action.from.player === name)) {
-            this.history.addEntry({ type: "forfeit", from: {player: name}});
+            this.history.addEntry({type: "forfeit", from: {player: name}});
         }
 
         // If this is the attacking player, set everyone's 'canAttack' (except defending)
@@ -598,8 +608,7 @@ export class Game {
                 // Special case where 4 cards of the same numeric have been placed and
                 // all of them have not been covered, hence preventing attackers from
                 // placing anymore cards. Therefore it is safe to finalise the round.
-                (this.tableTop.size === 4 && uncoveredCards === 4 && tableTopNumerics.size === 1))
-            {
+                (this.tableTop.size === 4 && uncoveredCards === 4 && tableTopNumerics.size === 1)) {
                 return true;
             }
         }
@@ -807,7 +816,7 @@ export class Game {
         player.deck.splice(player.deck.indexOf(card), 1);
 
         // Add history entry for the place
-        this.history.addEntry({ type: "place", data: [card], from: {player: name}, to: "tableTop"});
+        this.history.addEntry({type: "place", data: [card], from: {player: name}, to: "tableTop"});
     }
 
     /**
