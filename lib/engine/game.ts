@@ -355,6 +355,8 @@ export class Game {
                 this.history.addEntry({ type: "victory", at: Date.now()});
             }
         }
+
+        if (this.shouldAutoSkipWhenDefenderForfeits()) this.finaliseRound();
     }
 
     /**
@@ -458,7 +460,7 @@ export class Game {
             // the tableTop state changed.
             const newTableNumerics = new Set(...this.getTableTopDeck());
 
-            if (oldTableNumerics.size !== newTableNumerics.size) {
+            if (oldTableNumerics.size !== newTableNumerics.size && this.tableTop.size < 6) {
                 this.getActivePlayers().forEach(([name, player]) => {
                     player.turned = false;
                 });
@@ -560,9 +562,28 @@ export class Game {
 
         // https://github.com/feds01/durak-cards#26 - The round should be finalised if attackers
         // can't put down anymore cards.
+        // If the defender has declared that they have forfeited, then check if we should
+        // auto skip...
+        if (this.shouldAutoSkipWhenDefenderForfeits() || canFinalise && this.getCoveredCount() === this.tableTop.size) {
+            this.finaliseRound();
+        }
+    }
+
+
+    /**
+     * Method to check whether the round should be skipped if the defender has declared that they
+     * are forfeiting the round. The purpose of this method is to check for obvious cases where
+     * the game should prompt the next round. There are other cases where the game could also
+     * auto skip, however other cases require checking player deck's and this might give away
+     * to some players what other players are holding. Therefore, this method only checks for
+     * primitive auto skipping cases.
+     *
+     * @return {boolean} If the round should be finalised or not.
+     * */
+    public shouldAutoSkipWhenDefenderForfeits(): boolean {
+        const defender = this.getPlayer(this.getDefendingPlayerName());
         const uncoveredCards = this.tableTop.size - this.getCoveredCount();
         const tableTopCards = this.getTableTopDeck().map(card => parseCard(card).value);
-        const defender = this.getPlayer(defendingPlayerName);
 
         // If the defender has declared that they have forfeited, then check if we should
         // auto skip...
@@ -576,11 +597,11 @@ export class Game {
                 // placing anymore cards. Therefore it is safe to finalise the round.
                 (this.tableTop.size === 4 && uncoveredCards === 4 && new Set(tableTopCards).size === 1))
             {
-                return this.finaliseRound();
+                return true;
             }
         }
 
-        if (canFinalise && this.getCoveredCount() === this.tableTop.size) this.finaliseRound();
+        return false;
     }
 
     /**
