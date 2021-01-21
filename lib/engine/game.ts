@@ -116,7 +116,7 @@ export class Game {
             this.history = new History(this.serialize().state, []);
 
             // since it's a new round, we need to create a new node.
-            this.history.createNode({ type: "new_round"});
+            this.history.createNode({type: "new_round"});
         } else {
             this.history = new History(history.initialState, history.nodes);
         }
@@ -239,15 +239,10 @@ export class Game {
 
         if (hasVictory) {
             // Add history entry for the victory
-            this.history.addEntry({
-                type: "victory",
-                at: Date.now()
-            });
+            this.history.addEntry({type: "victory", at: Date.now()});
         } else {
             // since it's a new round, we need to create a new node.
-            this.history.createNode({
-                type: "new_round",
-            });
+            this.history.createNode({type: "new_round"});
         }
 
         this.victory = hasVictory;
@@ -311,11 +306,9 @@ export class Game {
                 throw new InvalidGameState("Player doesn't have enough cards to cover attack.");
             }
 
-            // we need to check if the player can transfer the defensive role to
-            // the next player. For this to be true, all of the cards in the deck
-            // must have the same card label, and, no card must be covered on the
-            // deck. Additionally, the role can't be passed if the player to the
-            // left has less cards than the length of the deck + 1.
+            // we need to check if the player can transfer the defensive role to the next player. For this to be true,
+            // all of the cards in the deck must have the same card label, and, no card must be covered on the deck.
+            // Additionally, the role can't be passed if the player to the left has less cards than the length of the deck + 1.
             if (Array.from(this.tableTop.keys()).some((tableCard) => parseCard(tableCard).value !== coveringCard.value)) {
                 throw new InvalidGameState("Improper card for the transfer of defense state to next player.");
             }
@@ -327,11 +320,7 @@ export class Game {
                 player.out = Date.now();
 
                 // Add history entry for the player exit
-                this.history.addEntry({
-                    type: "exit",
-                    // from: {player: name},
-                    at: player.out
-                });
+                this.history.addEntry({type: "exit", at: player.out});
             }
 
             const playerOrder = this.getPlayerOrderFrom(name).filter((p) => !this.getPlayer(p).out);
@@ -355,11 +344,7 @@ export class Game {
                 player.out = Date.now();
 
                 // Add history entry for the player exit
-                this.history.addEntry({
-                    type: "exit",
-                    // from: {player: name},
-                    at: player.out
-                });
+                this.history.addEntry({ type: "exit", at: player.out});
             } // The player may already be out due to the code above
 
             // now check here if there is only one player remaining in the game.
@@ -367,10 +352,7 @@ export class Game {
                 this.victory = true;
 
                 // Add history entry for the victory
-                this.history.addEntry({
-                    type: "victory",
-                    at: Date.now()
-                });
+                this.history.addEntry({ type: "victory", at: Date.now()});
             }
         }
     }
@@ -445,6 +427,9 @@ export class Game {
             throw new InvalidGameState(`Covering card suit must be the same suit as the table card and have a higher numerical value.`);
         }
 
+        // make a copy of the tableTop for comparison for later comparing
+        const oldTableNumerics = new Set(...this.getTableTopDeck());
+
         // Transfer the player card from their deck to the the table top.
         this.tableTop.set(this.getCardOnTableTopAt(pos)!, card);
         defendingPlayer.deck = defendingPlayer.deck.filter((playerCard) => playerCard !== card);
@@ -458,15 +443,26 @@ export class Game {
         });
 
         // check if the whole table has been covered, then invoke finaliseRound()
-        if (this.getCoveredCount() === Game.TableSize || defendingPlayer.deck.length === 0) {
+        if (this.getCoveredCount() === Game.TableSize || defendingPlayer.deck.length === 0 ||
+            (this.tableTop.size === 4 && this.getCoveredCount() === 4 && new Set(...this.getTableTopDeck()).size === 2)
+        ) {
             // declare that the defending player is out
-            if (this.deck.length === 0 && defendingPlayer.deck.length === 0) defendingPlayer.out = Date.now();
+            if (this.deck.length === 0 && defendingPlayer.deck.length === 0) {
+                defendingPlayer.out = Date.now();
+                this.history.addEntry({type: "exit", at: defendingPlayer.out});
+            }
+
             this.finaliseRound();
         } else {
-            // reset everybody's (except defender) 'turned' value since the tableTop state changed.
-            this.getActivePlayers().forEach(([name, player]) => {
-                player.turned = false;
-            });
+            // reset (only if the card numerics changed) everybody's (except defender) 'turned' value since
+            // the tableTop state changed.
+            const newTableNumerics = new Set(...this.getTableTopDeck());
+
+            if (oldTableNumerics.size !== newTableNumerics.size) {
+                this.getActivePlayers().forEach(([name, player]) => {
+                    player.turned = false;
+                });
+            }
         }
     }
 
@@ -529,11 +525,7 @@ export class Game {
         const forfeitDeclarations = this.history.getLastNode()!.findAction("forfeit");
 
         if (forfeitDeclarations.find((action) => action.from !== "tableTop" && action.from.player === name)) {
-            this.history.addEntry({
-                type: "forfeit",
-                from: {player: name}
-            });
-
+            this.history.addEntry({ type: "forfeit", from: {player: name}});
         }
 
         // If this is the attacking player, set everyone's 'canAttack' (except defending)
@@ -582,7 +574,8 @@ export class Game {
                 // Special case where 4 cards of the same numeric have been placed and
                 // all of them have not been covered, hence preventing attackers from
                 // placing anymore cards. Therefore it is safe to finalise the round.
-                (this.tableTop.size === 4 && uncoveredCards === 4 && new Set(tableTopCards).size === 1)) {
+                (this.tableTop.size === 4 && uncoveredCards === 4 && new Set(tableTopCards).size === 1))
+            {
                 return this.finaliseRound();
             }
         }
@@ -605,7 +598,6 @@ export class Game {
 
         // don't do anything if the player is already out, since this doesn't change the state of the game
         if (player.out) return;
-
         player.out = "resigned";
 
         // push the player's deck and the table top card onto the back of the deck
@@ -619,7 +611,7 @@ export class Game {
         if (player.isDefending) {
             this.deck.push(...this.getTableTopDeck());
             this.finaliseRound(true);
-        } else if(player.beganRound) {
+        } else if (player.beganRound) {
             // @Hack: just reset everybody's state by setting the same defending player as the
             // the current defending player
             this.setDefendingPlayer(this.getDefendingPlayerName());
@@ -915,7 +907,7 @@ export class Game {
      *
      * @return {{history: HistoryState, state: GameState}} the serialized version of the game, which is ready to be saved.
      * */
-    public serialize(): {history: HistoryState, state: GameState} {
+    public serialize(): { history: HistoryState, state: GameState } {
         return {
             history: this.history?.serialize(),
             state: this.getGameState(),
