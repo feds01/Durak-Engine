@@ -545,7 +545,7 @@ export class Game {
             });
         }
 
-        if (this.getAttackingPlayers().every(([name, player]) => player.turned)) {
+        if (this.getActivePlayers().every(([name, player]) => player.turned)) {
             return this.finaliseRound();
         }
 
