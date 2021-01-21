@@ -448,7 +448,9 @@ export class Game {
 
         // check if the whole table has been covered, then invoke finaliseRound()
         if (this.getCoveredCount() === Game.TableSize || defendingPlayer.deck.length === 0 ||
-            (this.tableTop.size === this.getCoveredCount() && this.getAttackingPlayers().every(([n, player]) => player.turned)) ||
+            (this.tableTop.size === this.getCoveredCount() &&
+                this.getAttackingPlayers().every(([n, player]) => player.turned) &&
+                oldTableNumerics.size === newTableNumerics.size) ||
             (this.tableTop.size === 4 && this.getCoveredCount() === 4 && newTableNumerics.size === 2)
         ) {
             // declare that the defending player is out
