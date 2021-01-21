@@ -2,7 +2,7 @@ export class Player {
     deck: string[];
     canAttack: boolean;
     turned: boolean;
-    out: number | null;
+    out: number | null | "resigned";
     isDefending: boolean;
     beganRound: boolean;
 

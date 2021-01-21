@@ -154,14 +154,19 @@ export class Game {
      * themselves or has decided to pickup the cards. Additionally, the method should
      * iterate over all the players to replenish the player card decks.
      *
+     * @param {boolean} resignPlayer - This is a boolean flag to represent if a player has resigned (who
+     * is a defender for the current round). In that situation, we must treat the end of the round as if
+     * the defender 'exited' the game, but the defenders cards are now re-inserted into the table
+     * deck.
+     *
      * */
-    finaliseRound(): void {
+    finaliseRound(resignPlayer: boolean = false): void {
         if (this.victory) {
             throw new InvalidGameState("Can't mutate game state after victory.");
         }
 
         // the round cannot be finalised if no cards were ever put down on to the table
-        if (this.tableTop.size === 0) {
+        if (!resignPlayer && this.tableTop.size === 0) {
             throw new InvalidGameState("Cannot finalise round before any cards have been played.");
         }
 
@@ -173,7 +178,7 @@ export class Game {
             return card === null;
         });
 
-        if (forfeitRound) {
+        if (!resignPlayer && forfeitRound) {
             // Take the cards from the table top and move them into the players
             // personal deck
             const player = this.getPlayer(this.getDefendingPlayerName());
@@ -455,7 +460,7 @@ export class Game {
         // check if the whole table has been covered, then invoke finaliseRound()
         if (this.getCoveredCount() === Game.TableSize || defendingPlayer.deck.length === 0) {
             // declare that the defending player is out
-            if (this.deck.length === 0) defendingPlayer.out = Date.now();
+            if (this.deck.length === 0 && defendingPlayer.deck.length === 0) defendingPlayer.out = Date.now();
             this.finaliseRound();
         } else {
             // reset everybody's (except defender) 'turned' value since the tableTop state changed.
@@ -473,7 +478,7 @@ export class Game {
      * @param {String} name - The name of the player that the defending status
      *        is being transferred to.
      * */
-    setDefendingPlayer(name: string): void {
+    private setDefendingPlayer(name: string): void {
         if (this.victory) {
             throw new InvalidGameState("Can't mutate game state after victory.");
         }
@@ -585,6 +590,41 @@ export class Game {
         if (canFinalise && this.getCoveredCount() === this.tableTop.size) this.finaliseRound();
     }
 
+    /**
+     * @version 1.0.0
+     * This method will resign a player from the game. The player will be removed
+     * from the player list, the player's cards will be moved to the bottom of the
+     * stack
+     *
+     * @param {String} name - The name of the player that the defending status
+     *        is being transferred to.
+     *
+     * */
+    public resignPlayer(name: string): void {
+        const player = this.getPlayer(name);
+
+        // don't do anything if the player is already out, since this doesn't change the state of the game
+        if (player.out) return;
+
+        player.out = "resigned";
+
+        // push the player's deck and the table top card onto the back of the deck
+        this.deck.push(...player.deck);
+
+        if (this.getActivePlayers().length === 1) {
+            this.victory = true;
+            return;
+        }
+
+        if (player.isDefending) {
+            this.deck.push(...this.getTableTopDeck());
+            this.finaliseRound(true);
+        } else if(player.beganRound) {
+            // @Hack: just reset everybody's state by setting the same defending player as the
+            // the current defending player
+            this.setDefendingPlayer(this.getDefendingPlayerName());
+        }
+    }
 
     /**
      * @version 1.0.0
@@ -782,7 +822,6 @@ export class Game {
 
         this.voidTableTop();
     }
-
 
     /**
      * @version 1.0.0
