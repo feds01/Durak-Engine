@@ -448,6 +448,7 @@ export class Game {
 
         // check if the whole table has been covered, then invoke finaliseRound()
         if (this.getCoveredCount() === Game.TableSize || defendingPlayer.deck.length === 0 ||
+            (this.tableTop.size === this.getCoveredCount() && this.getAttackingPlayers().every(([n, player]) => player.turned)) ||
             (this.tableTop.size === 4 && this.getCoveredCount() === 4 && newTableNumerics.size === 2)
         ) {
             // declare that the defending player is out
@@ -544,7 +545,7 @@ export class Game {
             });
         }
 
-        if (this.getActivePlayers().every(player => player[1].turned)) {
+        if (this.getAttackingPlayers().every(([name, player]) => player.turned)) {
             return this.finaliseRound();
         }
 
@@ -707,6 +708,10 @@ export class Game {
      * */
     private getActivePlayers(): [string, Player][] {
         return Array.from(this.players.entries()).filter(([name, player]) => !player.out);
+    }
+
+    private getAttackingPlayers(): [string, Player][] {
+        return this.getActivePlayers().filter(([name, player]) => !player.isDefending);
     }
 
     /**
