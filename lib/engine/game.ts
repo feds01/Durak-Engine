@@ -430,11 +430,13 @@ export class Game {
         }
 
         // make a copy of the tableTop for comparison for later comparing
-        const oldTableNumerics = new Set(...this.getTableTopDeck());
+        const oldTableNumerics = this.getTableTopNumerics();
 
         // Transfer the player card from their deck to the the table top.
         this.tableTop.set(this.getCardOnTableTopAt(pos)!, card);
         defendingPlayer.deck = defendingPlayer.deck.filter((playerCard) => playerCard !== card);
+
+        const newTableNumerics = this.getTableTopNumerics();
 
         // Add history entry for the pickup
         this.history.addEntry({
@@ -446,7 +448,7 @@ export class Game {
 
         // check if the whole table has been covered, then invoke finaliseRound()
         if (this.getCoveredCount() === Game.TableSize || defendingPlayer.deck.length === 0 ||
-            (this.tableTop.size === 4 && this.getCoveredCount() === 4 && new Set(...this.getTableTopDeck()).size === 2)
+            (this.tableTop.size === 4 && this.getCoveredCount() === 4 && newTableNumerics.size === 2)
         ) {
             // declare that the defending player is out
             if (this.deck.length === 0 && defendingPlayer.deck.length === 0) {
@@ -458,8 +460,6 @@ export class Game {
         } else {
             // reset (only if the card numerics changed) everybody's (except defender) 'turned' value since
             // the tableTop state changed.
-            const newTableNumerics = new Set(...this.getTableTopDeck());
-
             if (oldTableNumerics.size !== newTableNumerics.size && this.tableTop.size < 6) {
                 this.getActivePlayers().forEach(([name, player]) => {
                     player.turned = false;
@@ -583,7 +583,7 @@ export class Game {
     public shouldAutoSkipWhenDefenderForfeits(): boolean {
         const defender = this.getPlayer(this.getDefendingPlayerName());
         const uncoveredCards = this.tableTop.size - this.getCoveredCount();
-        const tableTopCards = this.getTableTopDeck().map(card => parseCard(card).value);
+        const tableTopNumerics = this.getTableTopNumerics();
 
         // If the defender has declared that they have forfeited, then check if we should
         // auto skip...
@@ -595,7 +595,7 @@ export class Game {
                 // Special case where 4 cards of the same numeric have been placed and
                 // all of them have not been covered, hence preventing attackers from
                 // placing anymore cards. Therefore it is safe to finalise the round.
-                (this.tableTop.size === 4 && uncoveredCards === 4 && new Set(tableTopCards).size === 1))
+                (this.tableTop.size === 4 && uncoveredCards === 4 && tableTopNumerics.size === 1))
             {
                 return true;
             }
@@ -740,6 +740,10 @@ export class Game {
         return tableCard.filter((item): item is string => item !== null);
     }
 
+    getTableTopNumerics(): Set<number> {
+        return new Set(this.getTableTopDeck().map((card) => parseCard(card).value));
+    }
+
     /**
      * @version 1.0.0
      * Method to get the number of cards that have been covered on the table top.
@@ -796,11 +800,7 @@ export class Game {
         player.deck.splice(player.deck.indexOf(card), 1);
 
         // Add history entry for the place
-        this.history.addEntry({
-            type: "place",
-            data: this.getTableTopDeck(),
-            from: {player: name}, to: "tableTop"
-        });
+        this.history.addEntry({ type: "place", data: [card], from: {player: name}, to: "tableTop"});
     }
 
     /**
