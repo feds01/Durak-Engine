@@ -21,23 +21,13 @@ const defaultSettings: GameSettings = {
  * @author Alexander. E. Fedotov
  * */
 export class Game {
-    private deck: string[] = generateCardDeck();
-    private trumpCard: CardType;
-    private tableTop: Map<string, string | null>;
-
-
-    get victory(): boolean {
-        return this._victory;
-    }
-
-    set victory(value: boolean) {
-        this._victory = value;
-    }
-
     static TableSize: number = 6;
 
-    private readonly history: History;
-    private players: Map<string, Player>;
+    public deck: string[] = generateCardDeck();
+    public trumpCard: CardType;
+    public tableTop: Map<string, string | null>;
+    public readonly history: History;
+    public players: Map<string, Player>;
     private _victory: boolean = false;
 
     /**
@@ -125,6 +115,14 @@ export class Game {
         } else {
             this.history = new History(history.initialState, history.nodes);
         }
+    }
+
+    get victory(): boolean {
+        return this._victory;
+    }
+
+    set victory(value: boolean) {
+        this._victory = value;
     }
 
 
