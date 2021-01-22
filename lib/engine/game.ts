@@ -107,7 +107,7 @@ export class Game {
 
             // since it's a new round, we need to create a new node.
             this.history.createNode({
-                type: "new_round", actors: {
+                type: "start", actors: {
                     defender: this.getDefendingPlayerName(),
                     attacker: this.getAttackingPlayerName(),
                 }
