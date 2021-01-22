@@ -28,7 +28,7 @@ export class Game {
     public tableTop: Map<string, string | null>;
     public readonly history: History;
     public players: Map<string, Player>;
-    private _victory: boolean = false;
+    public victory: boolean = false;
 
     /**
      * @version 1.0.0
@@ -117,14 +117,6 @@ export class Game {
         }
     }
 
-    get victory(): boolean {
-        return this._victory;
-    }
-
-    set victory(value: boolean) {
-        this._victory = value;
-    }
-
 
     /**
      * @version 1.0.0
@@ -184,9 +176,7 @@ export class Game {
         if (!resignPlayer && forfeitRound) {
             // Take the cards from the table top and move them into the players
             // personal deck
-            const player = this.getPlayer(this.getDefendingPlayerName());
-            player.deck = [...player.deck, ...this.getTableTopDeck()];
-
+            this.transferTableTop(this.getDefendingPlayerName());
             this.setDefendingPlayer(this.getPlayerNameByOffset(this.getDefendingPlayerName(), 2));
         } else {
             const defender = this.getDefendingPlayerName();
@@ -197,6 +187,7 @@ export class Game {
 
             // check that all players have declared that they finished the round.
             this.setDefendingPlayer(playerOrder[0]);
+            this.voidTableTop();
         }
 
         // Check if the 'spare' deck size is greater than zero and therefore we can
@@ -225,20 +216,12 @@ export class Game {
             // check if we need to declare someone as 'out' of the game.
             if (player.deck.length === 0) {
                 player.out = Date.now();
-
-                // We need to finalise the round, just in case it hasn't been done previously
-                // This needs to happen if a defender or any other player exits the game whilst
-                // placing or covering cards.
-                this.finalisePlayerTurn(name);
             }
 
             if (name !== this.getDefendingPlayerName() && player.out === null) {
                 hasVictory = false;
             }
         });
-
-        // finally after finalising player turns, void the table top
-        this.voidTableTop();
 
         if (hasVictory) {
             // Add history entry for the victory
@@ -523,10 +506,6 @@ export class Game {
     public finalisePlayerTurn(name: string): void {
         if (this.victory) {
             throw new InvalidGameState("Can't mutate game state after victory.");
-        }
-
-        if (this.tableTop.size === 0) {
-            throw new InvalidGameState("Cannot finalise turn when no cards have been placed.");
         }
 
         const player = this.getPlayer(name);
@@ -830,10 +809,6 @@ export class Game {
     private transferTableTop(to: string) {
         if (this.victory) {
             throw new InvalidGameState("Can't mutate game state after victory.");
-        }
-
-        if (!this.players.has(to)) {
-            throw new InvalidGameState("Player doesn't exist.");
         }
 
         const player = this.getPlayer(to);
