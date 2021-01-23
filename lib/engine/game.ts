@@ -5,6 +5,7 @@ import {getRandomKey, shuffleArray} from "../utils";
 import GameInitError from "./errors/GameInitError";
 import InvalidGameState from "./errors/InvalidGameState";
 import {CardType, generateCardDeck, parseCard} from "./card";
+import {TableSize} from "./consts";
 
 export type GameSettings = {
     randomisePlayerOrder: boolean;
@@ -21,8 +22,6 @@ const defaultSettings: GameSettings = {
  * @author Alexander. E. Fedotov
  * */
 export class Game {
-    static TableSize: number = 6;
-
     public deck: string[] = generateCardDeck();
     public trumpCard: CardType;
     public tableTop: Map<string, string | null>;
@@ -76,7 +75,7 @@ export class Game {
         }
 
         // distribute the cards between the players as if in a physical way
-        for (let index = 0; index < Game.TableSize; index++) {
+        for (let index = 0; index < TableSize; index++) {
             this.players.forEach((player) => {
                 player.addCard(this.deck.shift()!);
             });
@@ -438,7 +437,7 @@ export class Game {
         });
 
         // check if the whole table has been covered, then invoke finaliseRound()
-        if (this.getCoveredCount() === Game.TableSize || defendingPlayer.deck.length === 0 ||
+        if (this.getCoveredCount() === TableSize || defendingPlayer.deck.length === 0 ||
             (this.tableTop.size === this.getCoveredCount() &&
                 this.getAttackingPlayers().every(([n, player]) => player.turned) &&
                 oldTableNumerics.size === newTableNumerics.size) ||
@@ -579,7 +578,7 @@ export class Game {
         // auto skip...
         if (defender.turned) {
             if (
-                this.tableTop.size === Game.TableSize ||
+                this.tableTop.size === TableSize ||
                 uncoveredCards === defender.deck.length ||
 
                 // Special case where 4 cards of the same numeric have been placed and

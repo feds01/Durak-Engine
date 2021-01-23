@@ -4,5 +4,5 @@ export {Event, ServerEvents, MoveTypes, GameStatus, ClientEvents} from "./protoc
 
 
 export {Game} from "./engine/game";
-export { CardType, parseCard} from "./engine/card";
-export {CardNumerics, CardSuits} from './engine/consts';
+export {CardType, parseCard} from "./engine/card";
+export {CardNumerics, CardSuits, TableSize} from './engine/consts';
