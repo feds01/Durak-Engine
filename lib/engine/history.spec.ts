@@ -17,7 +17,7 @@ describe("History sub-system tests", () => {
         test(("Adding an action to a finalised HistoryNode should throw"), () => {
             const node = new HistoryNode([], true);
 
-            expect(() => node.addAction({type: "forfeit", from: {player: "player"}})).toThrow();
+            expect(() => node.addAction({type: "forfeit", player: "player"})).toThrow();
         });
     });
 });

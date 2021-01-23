@@ -310,7 +310,7 @@ export class Game {
                 player.out = Date.now();
 
                 // Add history entry for the player exit
-                this.history.addEntry({type: "exit", at: player.out});
+                this.history.addEntry({type: "exit", player: name, at: player.out});
             }
 
             const playerOrder = this.getPlayerOrderFrom(name).filter((p) => !this.getPlayer(p).out);
@@ -334,7 +334,7 @@ export class Game {
                 player.out = Date.now();
 
                 // Add history entry for the player exit
-                this.history.addEntry({type: "exit", at: player.out});
+                this.history.addEntry({type: "exit", player: name, at: player.out});
             } // The player may already be out due to the code above
 
             // now check here if there is only one player remaining in the game.
@@ -430,10 +430,8 @@ export class Game {
 
         // Add history entry for the pickup
         this.history.addEntry({
-            type: "cover",
-            data: [card],
-            from: {player: this.getDefendingPlayerName()}, to: "tableTop",
-            on: pos
+            type: "cover", data: [card],
+            player: this.getDefendingPlayerName(), on: pos
         });
 
         // check if the whole table has been covered, then invoke finaliseRound()
@@ -446,7 +444,7 @@ export class Game {
             // declare that the defending player is out
             if (this.deck.length === 0 && defendingPlayer.deck.length === 0) {
                 defendingPlayer.out = Date.now();
-                this.history.addEntry({type: "exit", at: defendingPlayer.out});
+                this.history.addEntry({type: "exit", player: this.getDefendingPlayerName(), at: defendingPlayer.out});
             }
 
             this.finaliseRound();
@@ -507,6 +505,10 @@ export class Game {
             throw new InvalidGameState("Can't mutate game state after victory.");
         }
 
+        if (this.tableTop.size === 0) {
+            throw new InvalidGameState("Cannot finalise turn when no cards have been placed.");
+        }
+
         const player = this.getPlayer(name);
         player.turned = true;
 
@@ -515,8 +517,8 @@ export class Game {
         // they have forfeited.
         const forfeitDeclarations = this.history.getLastNode()!.findAction("forfeit");
 
-        if (forfeitDeclarations.find((action) => action.from !== "tableTop" && action.from.player === name)) {
-            this.history.addEntry({type: "forfeit", from: {player: name}});
+        if (forfeitDeclarations.find((action) => action.player === name)) {
+            this.history.addEntry({type: "forfeit", player: name});
         }
 
         // If this is the attacking player, set everyone's 'canAttack' (except defending)
@@ -792,7 +794,7 @@ export class Game {
         player.deck.splice(player.deck.indexOf(card), 1);
 
         // Add history entry for the place
-        this.history.addEntry({type: "place", data: [card], from: {player: name}, to: "tableTop"});
+        this.history.addEntry({type: "place", data: [card], player: name});
     }
 
     /**
@@ -818,7 +820,7 @@ export class Game {
         this.history.addEntry({
             type: "pickup",
             data: this.getTableTopDeck(),
-            to: {player: to}, from: "tableTop"
+            player: to,
         });
 
         this.voidTableTop();

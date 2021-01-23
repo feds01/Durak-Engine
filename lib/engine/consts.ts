@@ -11,6 +11,6 @@ export const CardNumerics = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", 
 export const CardSuits = {'H': '♡', 'D': '♢', 'C': '♣', 'S': '♤'};
 
 /**
- * The maximum siz of the table top for the game.
+ * The maximum size of the table top for the game.
  * */
 export const TableSize = 6;

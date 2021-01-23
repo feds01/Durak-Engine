@@ -4,21 +4,17 @@ import InvalidHistoryState from "./errors/InvalidHistoryState";
 export type PlayerActionType = "place" | "cover" | "forfeit" | "pickup";
 export type AutoActionType = "exit" | "victory" | "new_round" | "start";
 
-// Special types when recording the actor, "tableTop" is what is on the actual
-// table at any time.
-export type ActorType = {player: string} | "tableTop";
-
 export type PlayerAction = {
     readonly type: PlayerActionType;
     readonly data?: string[];
-    readonly to?: ActorType;
-    readonly from: ActorType;
+    readonly player?: string,
     readonly on?: number;
 }
 
 export type AutonomousAction = {
     readonly type: AutoActionType;
     readonly at?: number | string;
+    readonly player?: string,
     readonly actors?: {
         defender: string,
         attacker: string,
