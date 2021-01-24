@@ -35,7 +35,6 @@ export class PlayerGameState {
         public tableTop: {[key: string]: string},
         public deckSize: number,
         public trumpCard: CardType,
-        public victory: boolean
     ) {
     }
 }
