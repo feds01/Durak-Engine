@@ -1,11 +1,11 @@
 import {Player} from "./player";
+import {TableSize} from "./consts";
 import {History, HistoryState} from "./history";
 import {GameState, PlayerGameState} from "./state";
 import {getRandomKey, shuffleArray} from "../utils";
 import GameInitError from "./errors/GameInitError";
 import InvalidGameState from "./errors/InvalidGameState";
 import {CardType, generateCardDeck, parseCard} from "./card";
-import {TableSize} from "./consts";
 
 export type GameSettings = {
     randomisePlayerOrder: boolean;
@@ -875,19 +875,52 @@ export class Game {
             // information about other players, including how many cards they
             // are holding, if they have turned, and if they are defending...
             players: playerOrder.map(name => {
-                const player = this.players.get(name)!;
+                const other = this.players.get(name)!;
 
                 return {
                     name,
-                    ...player,
-
-                    // overwrite these values to suit the required format and to
-                    // not reveal sensitive information about game state to other
-                    // players
-                    out: player.out !== null,
-                    deck: player.deck.length,
+                    ...other,
+                    out: other.out !== null,
+                    // allow players who are out of the game to view player decks
+                    deck: player.out ? other.deck : other.deck.length,
                 }
             }),
+        }
+    }
+
+
+    /**
+     * Method used to generate a game state from the perspective of a spectator. Spectators do not need all the
+     * information on particular player, they only need information on the tableTop, deckSize, and generic information
+     * about players in the game.
+     *
+     * @returns {Partial<PlayerGameState>} A game state from the spectators viewpoint which redacts player
+     * state and information on player decks.
+     * */
+    public getStateForSpectator(): Partial<PlayerGameState> {
+        // transpose the array to match the position of the player on the table
+        const playerOrder = this.getPlayerOrderFrom(this.getDefendingPlayerName());
+
+        return {
+            // general info about the game state
+            trumpCard: this.trumpCard,
+            deckSize: this.deck.length,
+
+            // @ts-ignore
+            tableTop: Object.fromEntries(this.tableTop),
+            // information about other players, including how many cards they
+            // are holding, if they have turned, and if they are defending...
+            players: playerOrder.map(name => {
+                const other = this.players.get(name)!;
+
+                return {
+                    name,
+                    ...other,
+                    out: other.out !== null,
+                    deck: other.deck.length,
+                }
+            }),
+
         }
     }
 

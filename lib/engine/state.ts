@@ -20,7 +20,7 @@ export class GameState {
 
 export type PlayerState = {
     name: string,
-    deck: number,
+    deck: string[] | number,
     out: boolean,
     turned: boolean,
     beganRound: boolean,
