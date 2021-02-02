@@ -21,6 +21,7 @@ export enum ServerEvents {
     START_GAME = "start_game",
     KICK_PLAYER = "kick_player",
     MOVE = "move",
+    MESSAGE = "message",
 }
 
 export enum ClientEvents {
