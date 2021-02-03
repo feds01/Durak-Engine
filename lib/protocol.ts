@@ -25,6 +25,7 @@ export enum ServerEvents {
 }
 
 export enum ClientEvents {
+    MESSAGE = "message",
     JOINED_GAME = "join_game",
     NEW_PLAYER = "new_player",
     COUNTDOWN = "countdown",
