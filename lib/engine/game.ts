@@ -899,7 +899,7 @@ export class Game {
      * */
     public getStateForSpectator(): Partial<PlayerGameState> {
         // transpose the array to match the position of the player on the table
-        const playerOrder = this.getPlayerOrderFrom(this.getDefendingPlayerName());
+        const playerOrder = [this.getDefendingPlayerName(), ...this.getPlayerOrderFrom(this.getDefendingPlayerName())];
 
         return {
             // general info about the game state
