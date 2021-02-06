@@ -9,10 +9,14 @@ import {CardType, generateCardDeck, parseCard} from "./card";
 
 export type GameSettings = {
     randomisePlayerOrder: boolean;
+    shortGameDeck: boolean;
+    freeForAll: boolean,
 }
 
-const defaultSettings: GameSettings = {
-    randomisePlayerOrder: false
+export const defaultSettings: GameSettings = {
+    randomisePlayerOrder: true,
+    shortGameDeck: false,
+    freeForAll: true,
 }
 
 /**
@@ -22,7 +26,7 @@ const defaultSettings: GameSettings = {
  * @author Alexander. E. Fedotov
  * */
 export class Game {
-    public deck: string[] = generateCardDeck();
+    public deck: string[];
     public trumpCard: CardType;
     public tableTop: Map<string, string | null>;
     public readonly history: History;
@@ -53,14 +57,16 @@ export class Game {
         // Check if the players argument follows the specified constraints.
         if (!Number.isInteger(players.length) && players.length < 1) {
             throw new GameInitError("Number of players must be a positive integer.");
-        } else if (players.length > 8) {
-            throw new GameInitError("Number of players cannot be greater than eight.");
+        } else if (players.length > 8 || (settings.shortGameDeck && players.length > 6)) {
+            throw new GameInitError(`Number of players cannot be greater than ${settings.shortGameDeck ? "six (short deck)" : "eight"}.`);
         }
 
         // check that all of the player names are unique
         if ((new Set(players)).size !== players.length) {
             throw new GameInitError("Player names must be unique.")
         }
+
+        this.deck = generateCardDeck(settings.shortGameDeck);
 
         // generate card deck and shuffle it for the game
         shuffleArray(this.deck);

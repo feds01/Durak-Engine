@@ -35,9 +35,11 @@ export function parseCard(card: string): CardType {
 /**
  * Generates a whole card deck for use in the format of a list. Each
  * element follows the format of '(label)(suit)'.
+ *
+ * @param {boolean} short - Whether the deck is short or not
  * */
-export function generateCardDeck(): string[] {
-    return CardNumerics.map((label) => {
+export function generateCardDeck(short: boolean = false): string[] {
+    return CardNumerics.slice(short ? 4 : 0, CardNumerics.length).map((label) => {
         return Object.keys(CardSuits).map((suit) => {
             return `${label}${suit}`;
         })
