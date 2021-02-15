@@ -144,6 +144,18 @@ export class Game {
         return game;
     }
 
+    static performSanityCheck(game: Game): boolean {
+        const defender = game.getPlayer(game.getDefendingPlayerName());
+
+        // check that the number of uncovered cards on the table-top is not larger
+        // than the number of cards...
+        if (game.tableTop.size - game.getCoveredCount() > defender.deck.length) {
+            return false;
+        }
+
+        return true;
+    }
+
 
     /**
      * @version 1.0.0
