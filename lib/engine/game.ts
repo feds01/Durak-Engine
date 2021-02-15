@@ -333,6 +333,13 @@ export class Game {
 
             const playerOrder = this.getPlayerOrderFrom(name).filter((p) => !this.getPlayer(p).out);
             this.setDefendingPlayer(playerOrder[0]);
+        } else {
+            const defender = this.getPlayer(this.getDefendingPlayerName());
+
+            // check here that adding another card is still cover-able by the defender.
+            if (this.tableTop.size + 1 > defender.deck.length) {
+                throw new InvalidGameState("Player doesn't have enough cards to cover attack.");
+            }
         }
 
         // add the card to the table top from the player's deck.
@@ -798,8 +805,10 @@ export class Game {
             throw new InvalidGameState("Can't mutate game state after victory.");
         }
 
-        if (this.tableTop.size === 6) {
-            throw new InvalidGameState("Player deck already full.");
+        const defender = this.getPlayer(this.getDefendingPlayerName());
+
+        if (this.tableTop.size === 6 || this.tableTop.size + 1 > defender.deck.length) {
+            throw new InvalidGameState("Player doesn't have enough cards to cover attack.");
         }
 
         const player = this.getPlayer(name);
