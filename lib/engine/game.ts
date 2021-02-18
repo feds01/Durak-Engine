@@ -310,7 +310,7 @@ export class Game {
 
             const nextPlayer = this.getPlayer(this.getPlayerNameByOffset(name, 1));
 
-            if (this.tableTop.size + 1 > nextPlayer.deck.length) {
+            if ((this.tableTop.size - this.getCoveredCount()) + 1 > nextPlayer.deck.length) {
                 throw new InvalidGameState("Player doesn't have enough cards to cover attack.");
             }
 
@@ -337,7 +337,7 @@ export class Game {
             const defender = this.getPlayer(this.getDefendingPlayerName());
 
             // check here that adding another card is still cover-able by the defender.
-            if (this.tableTop.size + 1 > defender.deck.length) {
+            if ((this.tableTop.size - this.getCoveredCount()) + 1 > defender.deck.length) {
                 throw new InvalidGameState("Player doesn't have enough cards to cover attack.");
             }
         }
@@ -807,7 +807,7 @@ export class Game {
 
         const defender = this.getPlayer(this.getDefendingPlayerName());
 
-        if (this.tableTop.size === 6 || this.tableTop.size + 1 > defender.deck.length) {
+        if (this.tableTop.size === 6 || (this.tableTop.size - this.getCoveredCount()) + 1 > defender.deck.length) {
             throw new InvalidGameState("Player doesn't have enough cards to cover attack.");
         }
 
